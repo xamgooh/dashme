@@ -1,5 +1,7 @@
 import { db } from '@/lib/db'
 
+export const dynamic = 'force-dynamic'
+
 type Bucket = {
   clicks: number
   impressions: number

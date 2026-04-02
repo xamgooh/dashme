@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from 'next/server'
 import { exchangeCode, listGscProperties } from '@/lib/gsc'
 import { db } from '@/lib/db'
 
+export const dynamic = 'force-dynamic'
+
 const SITE_COLORS = [
   '#818cf8', '#34d399', '#f472b6', '#fb923c',
   '#38bdf8', '#a78bfa', '#4ade80', '#fbbf24',

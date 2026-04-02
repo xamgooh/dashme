@@ -1,5 +1,7 @@
 import { db } from '@/lib/db'
 
+export const dynamic = 'force-dynamic'
+
 interface RawMetric  { date: Date; clicks: number; impressions: number; ctr: number; position: number }
 interface RawPage    { pageUrl: string; clicks: number; impressions: number; ctr: number; position: number }
 interface RawKeyword { keyword: string; clicks: number; impressions: number; ctr: number; position: number }
