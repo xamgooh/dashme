@@ -13,7 +13,11 @@ function client() {
 export function getAuthUrl() {
   return client().generateAuthUrl({
     access_type: 'offline',
-    scope: ['https://www.googleapis.com/auth/webmasters.readonly'],
+    scope: [
+      'openid',
+      'email',
+      'https://www.googleapis.com/auth/webmasters.readonly',
+    ],
     prompt: 'consent',
   })
 }
@@ -34,9 +38,16 @@ export async function listProperties(accessToken: string, refreshToken: string) 
 export async function syncSite(siteId: string) {
   const site = await db.site.findUniqueOrThrow({ where: { id: siteId } })
   const c = client()
-  c.setCredentials({ access_token: site.accessToken, refresh_token: site.refreshToken, expiry_date: site.tokenExpiry.getTime() })
+  c.setCredentials({
+    access_token: site.accessToken,
+    refresh_token: site.refreshToken,
+    expiry_date: site.tokenExpiry.getTime(),
+  })
   c.on('tokens', async (t) => {
-    if (t.access_token) await db.site.update({ where: { id: siteId }, data: { accessToken: t.access_token, tokenExpiry: new Date(t.expiry_date ?? Date.now() + 3600000) } })
+    if (t.access_token) await db.site.update({
+      where: { id: siteId },
+      data: { accessToken: t.access_token, tokenExpiry: new Date(t.expiry_date ?? Date.now() + 3600000) },
+    })
   })
 
   const sc = google.searchconsole({ version: 'v1', auth: c })
@@ -44,7 +55,13 @@ export async function syncSite(siteId: string) {
   const start = new Date(Date.now() - 28 * 86400000).toISOString().split('T')[0]
   const base = { siteUrl: site.propertyUrl, requestBody: { startDate: start, endDate: end, rowLimit: 100 } }
 
-  type Row = { keys?: string[] | null; clicks?: number | null; impressions?: number | null; ctr?: number | null; position?: number | null }
+  type Row = {
+    keys?: string[] | null
+    clicks?: number | null
+    impressions?: number | null
+    ctr?: number | null
+    position?: number | null
+  }
 
   const [daily, pages, kws, countries] = await Promise.all([
     sc.searchanalytics.query({ ...base, requestBody: { ...base.requestBody, dimensions: ['date'], rowLimit: 28 } }),
@@ -58,10 +75,22 @@ export async function syncSite(siteId: string) {
     db.sitePage.deleteMany({ where: { siteId } }),
     db.siteKeyword.deleteMany({ where: { siteId } }),
     db.siteCountry.deleteMany({ where: { siteId } }),
-    ...(daily.data.rows ?? []).map((r: Row) => db.siteMetric.create({ data: { siteId, date: new Date(r.keys![0]), clicks: r.clicks ?? 0, impressions: r.impressions ?? 0, ctr: (r.ctr ?? 0) * 100, position: r.position ?? 0 } })),
-    ...(pages.data.rows ?? []).map((r: Row) => db.sitePage.create({ data: { siteId, pageUrl: r.keys![0], clicks: r.clicks ?? 0, impressions: r.impressions ?? 0, ctr: (r.ctr ?? 0) * 100, position: r.position ?? 0 } })),
-    ...(kws.data.rows ?? []).map((r: Row) => db.siteKeyword.create({ data: { siteId, keyword: r.keys![0], clicks: r.clicks ?? 0, impressions: r.impressions ?? 0, ctr: (r.ctr ?? 0) * 100, position: r.position ?? 0 } })),
-    ...(countries.data.rows ?? []).map((r: Row) => db.siteCountry.create({ data: { siteId, country: r.keys![0], clicks: r.clicks ?? 0, impressions: r.impressions ?? 0, ctr: (r.ctr ?? 0) * 100, position: r.position ?? 0 } })),
+    ...(daily.data.rows ?? []).map((r: Row) => db.siteMetric.create({ data: {
+      siteId, date: new Date(r.keys![0]), clicks: r.clicks ?? 0,
+      impressions: r.impressions ?? 0, ctr: (r.ctr ?? 0) * 100, position: r.position ?? 0,
+    }})),
+    ...(pages.data.rows ?? []).map((r: Row) => db.sitePage.create({ data: {
+      siteId, pageUrl: r.keys![0], clicks: r.clicks ?? 0,
+      impressions: r.impressions ?? 0, ctr: (r.ctr ?? 0) * 100, position: r.position ?? 0,
+    }})),
+    ...(kws.data.rows ?? []).map((r: Row) => db.siteKeyword.create({ data: {
+      siteId, keyword: r.keys![0], clicks: r.clicks ?? 0,
+      impressions: r.impressions ?? 0, ctr: (r.ctr ?? 0) * 100, position: r.position ?? 0,
+    }})),
+    ...(countries.data.rows ?? []).map((r: Row) => db.siteCountry.create({ data: {
+      siteId, country: r.keys![0], clicks: r.clicks ?? 0,
+      impressions: r.impressions ?? 0, ctr: (r.ctr ?? 0) * 100, position: r.position ?? 0,
+    }})),
     db.site.update({ where: { id: siteId }, data: { lastSynced: new Date() } }),
   ])
 }
