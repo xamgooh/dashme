@@ -5,9 +5,9 @@
     "buildCommand": "npm run build"
   },
   "deploy": {
-    "startCommand": "npm start",
-    "healthcheckPath": "/",
-    "healthcheckTimeout": 30,
+    "startCommand": "next start -p ${PORT:-3000}",
+    "healthcheckPath": "/api/health",
+    "healthcheckTimeout": 60,
     "restartPolicyType": "ON_FAILURE",
     "restartPolicyMaxRetries": 3
   }
