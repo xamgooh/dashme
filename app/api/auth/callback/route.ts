@@ -1,67 +1,36 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { exchangeCode, listGscProperties } from '@/lib/gsc'
+import { exchangeCode, listProperties } from '@/lib/gsc'
 import { db } from '@/lib/db'
-
 export const dynamic = 'force-dynamic'
-
-const SITE_COLORS = [
-  '#818cf8', '#34d399', '#f472b6', '#fb923c',
-  '#38bdf8', '#a78bfa', '#4ade80', '#fbbf24',
-]
-
+const COLORS = ['#818cf8','#34d399','#f472b6','#fb923c','#38bdf8','#a78bfa','#4ade80','#fbbf24']
 export async function GET(req: NextRequest) {
   const { searchParams } = new URL(req.url)
   const code = searchParams.get('code')
-  const error = searchParams.get('error')
-
-  if (error || !code) {
-    return NextResponse.redirect(new URL('/dashboard?error=oauth_denied', req.url))
-  }
-
+  if (!code) return NextResponse.redirect(new URL('/dashboard?error=denied', req.url))
   try {
     const tokens = await exchangeCode(code)
-
-    if (!tokens.access_token || !tokens.refresh_token) {
-      return NextResponse.redirect(new URL('/dashboard?error=no_tokens', req.url))
-    }
-
-    const properties = await listGscProperties(tokens.access_token, tokens.refresh_token)
-
-    const existingSites = await db.site.findMany({ select: { propertyUrl: true } })
-    const existingUrls = new Set(existingSites.map((s: { propertyUrl: string }) => s.propertyUrl))
-    const siteCount = await db.site.count()
-
-    const newSites = properties.filter(
-      (p: { siteUrl?: string | null }) => p.siteUrl && !existingUrls.has(p.siteUrl)
-    )
-
+    if (!tokens.access_token || !tokens.refresh_token) return NextResponse.redirect(new URL('/dashboard?error=no_tokens', req.url))
+    const props = await listProperties(tokens.access_token, tokens.refresh_token)
+    const existing = new Set((await db.site.findMany({ select: { propertyUrl: true } })).map((s: { propertyUrl: string }) => s.propertyUrl))
+    const count = await db.site.count()
     await Promise.all(
-      newSites.map((p: { siteUrl?: string | null }, i: number) =>
-        db.site.create({
-          data: {
-            url: (p.siteUrl ?? '').replace(/^sc-domain:/, '').replace(/\/$/, ''),
-            propertyUrl: p.siteUrl!,
-            displayName: (p.siteUrl ?? '').replace(/^sc-domain:/, '').replace(/\/$/, ''),
-            accessToken: tokens.access_token!,
-            refreshToken: tokens.refresh_token!,
-            tokenExpiry: new Date(tokens.expiry_date ?? Date.now() + 3600 * 1000),
-            color: SITE_COLORS[(siteCount + i) % SITE_COLORS.length],
-          },
-        })
-      )
+      props
+        .filter((p: { siteUrl?: string | null }) => p.siteUrl && !existing.has(p.siteUrl))
+        .map((p: { siteUrl?: string | null }, i: number) => db.site.create({ data: {
+          url: (p.siteUrl ?? '').replace(/^sc-domain:/, '').replace(/\/$/, ''),
+          propertyUrl: p.siteUrl!,
+          displayName: (p.siteUrl ?? '').replace(/^sc-domain:/, '').replace(/\/$/, ''),
+          accessToken: tokens.access_token!,
+          refreshToken: tokens.refresh_token!,
+          tokenExpiry: new Date(tokens.expiry_date ?? Date.now() + 3600000),
+          color: COLORS[(count + i) % COLORS.length],
+        }}))
     )
-
-    const res = NextResponse.redirect(new URL('/dashboard?synced=1', req.url))
-    res.cookies.set('dashboard_session', process.env.DASHBOARD_SECRET!, {
-      httpOnly: true,
-      secure: process.env.NODE_ENV === 'production',
-      maxAge: 60 * 60 * 24 * 30,
-      path: '/',
-    })
-
+    const res = NextResponse.redirect(new URL('/dashboard', req.url))
+    res.cookies.set('ds', process.env.DASHBOARD_SECRET!, { httpOnly: true, secure: true, maxAge: 86400 * 30, path: '/' })
     return res
-  } catch (err) {
-    console.error('OAuth callback error:', err)
-    return NextResponse.redirect(new URL('/dashboard?error=oauth_failed', req.url))
+  } catch (e) {
+    console.error(e)
+    return NextResponse.redirect(new URL('/dashboard?error=failed', req.url))
   }
 }

@@ -1,17 +1,11 @@
 import { NextRequest } from 'next/server'
 import { syncSite } from '@/lib/gsc'
-
 export const dynamic = 'force-dynamic'
-
-export async function POST(
-  _req: NextRequest,
-  { params }: { params: { id: string } }
-) {
+export async function POST(_req: NextRequest, { params }: { params: { id: string } }) {
   try {
     await syncSite(params.id)
     return Response.json({ ok: true })
-  } catch (err: any) {
-    console.error('Sync error:', err)
-    return Response.json({ error: err.message }, { status: 500 })
+  } catch (e: any) {
+    return Response.json({ error: e.message }, { status: 500 })
   }
 }

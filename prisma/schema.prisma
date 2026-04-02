@@ -18,7 +18,6 @@ model Site {
   lastSynced   DateTime?
   color        String    @default("#818cf8")
   createdAt    DateTime  @default(now())
-
   metrics      SiteMetric[]
   pages        SitePage[]
   keywords     SiteKeyword[]
@@ -33,9 +32,7 @@ model SiteMetric {
   impressions Int
   ctr         Float
   position    Float
-
-  site Site @relation(fields: [siteId], references: [id], onDelete: Cascade)
-
+  site        Site     @relation(fields: [siteId], references: [id], onDelete: Cascade)
   @@unique([siteId, date])
   @@index([siteId, date])
 }
@@ -49,9 +46,7 @@ model SitePage {
   ctr         Float
   position    Float
   syncedAt    DateTime @default(now())
-
-  site Site @relation(fields: [siteId], references: [id], onDelete: Cascade)
-
+  site        Site     @relation(fields: [siteId], references: [id], onDelete: Cascade)
   @@index([siteId, clicks])
 }
 
@@ -64,9 +59,7 @@ model SiteKeyword {
   ctr         Float
   position    Float
   syncedAt    DateTime @default(now())
-
-  site Site @relation(fields: [siteId], references: [id], onDelete: Cascade)
-
+  site        Site     @relation(fields: [siteId], references: [id], onDelete: Cascade)
   @@index([siteId, clicks])
 }
 
@@ -79,8 +72,6 @@ model SiteCountry {
   ctr         Float
   position    Float
   syncedAt    DateTime @default(now())
-
-  site Site @relation(fields: [siteId], references: [id], onDelete: Cascade)
-
+  site        Site     @relation(fields: [siteId], references: [id], onDelete: Cascade)
   @@index([siteId, clicks])
 }

@@ -2,10 +2,10 @@
   "$schema": "https://railway.app/railway.schema.json",
   "build": {
     "builder": "NIXPACKS",
-    "buildCommand": "npm run build"
+    "buildCommand": "npm install && npx prisma generate && next build"
   },
   "deploy": {
-    "startCommand": "next start -p ${PORT:-3000}",
+    "startCommand": "node_modules/.bin/next start -p ${PORT:-3000}",
     "healthcheckPath": "/api/health",
     "healthcheckTimeout": 60,
     "restartPolicyType": "ON_FAILURE",
