@@ -36,17 +36,30 @@ export default function Dashboard() {
   const [sites, setSites] = useState<SiteWithData[]>([])
   const [overviewData, setOverviewData] = useState<{ totals: any; daily: DailyMetric[] } | null>(null)
   const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
   const [syncing, setSyncing] = useState<Record<string, boolean>>({})
   const [syncingAll, setSyncingAll] = useState(false)
 
   const loadData = useCallback(async () => {
-    const [sitesRes, overviewRes] = await Promise.all([
-      fetch('/api/sites').then((r) => r.json()),
-      fetch('/api/overview').then((r) => r.json()),
-    ])
-    setSites(sitesRes)
-    setOverviewData(overviewRes)
-    setLoading(false)
+    try {
+      const [sitesRes, overviewRes] = await Promise.all([
+        fetch('/api/sites'),
+        fetch('/api/overview'),
+      ])
+      if (!sitesRes.ok || !overviewRes.ok) {
+        throw new Error(`API ${sitesRes.status} / ${overviewRes.status}`)
+      }
+      const [sitesJson, overviewJson] = await Promise.all([
+        sitesRes.json(),
+        overviewRes.json(),
+      ])
+      setSites(sitesJson)
+      setOverviewData(overviewJson)
+    } catch (e: any) {
+      setError(e.message ?? 'Okänt fel')
+    } finally {
+      setLoading(false)
+    }
   }, [])
 
   useEffect(() => { loadData() }, [loadData])
@@ -78,6 +91,18 @@ export default function Dashboard() {
     return (
       <div style={{ ...s.wrap, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
         <div style={{ color: '#50507a', fontSize: 13 }}>Laddar...</div>
+      </div>
+    )
+  }
+
+  if (error) {
+    return (
+      <div style={{ ...s.wrap, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 12 }}>
+        <div style={{ color: '#f87171', fontSize: 14, fontWeight: 500 }}>Fel vid laddning</div>
+        <div style={{ color: '#50507a', fontSize: 12, fontFamily: 'monospace', background: '#131318', padding: '8px 16px', borderRadius: 8, border: '1px solid rgba(255,255,255,0.07)' }}>{error}</div>
+        <button onClick={loadData} style={{ marginTop: 8, padding: '6px 16px', borderRadius: 8, border: '1px solid rgba(255,255,255,0.1)', background: 'transparent', color: '#7070a0', cursor: 'pointer', fontSize: 13 }}>
+          Försök igen
+        </button>
       </div>
     )
   }
