@@ -26,18 +26,16 @@ export default function SiteCardLarge({ site, onSync, onDelete, syncing }: Props
 
   return (
     <div
-      style={{ background: '#fff', border: '0.5px solid rgba(0,0,0,0.08)', borderRadius: 14, overflow: 'hidden', display: 'flex', flexDirection: 'column', transition: 'border-color 0.15s' }}
+      style={{ background: '#fff', borderRadius: 14, overflow: 'hidden', display: 'flex', flexDirection: 'column' }}
       onMouseEnter={e => ((e.currentTarget as HTMLDivElement).style.borderColor = 'rgba(0,0,0,0.16)')}
       onMouseLeave={e => ((e.currentTarget as HTMLDivElement).style.borderColor = 'rgba(0,0,0,0.08)')}
     >
-      <div style={{ height: 3, background: site.color }} />
-
-      <div style={{ padding: '18px 20px 0' }}>
+<div style={{ padding: '18px 20px 0' }}>
         {/* Header row */}
         <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 6 }}>
           <div style={{ flex: 1, minWidth: 0 }}>
-            <div style={{ fontSize: 13, color: site.color, fontWeight: 500, marginBottom: 2, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-              {site.displayName ?? site.url}
+            <div style={{ fontSize: 17, color: '#111', fontWeight: 700, marginBottom: 2, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', letterSpacing: '0.02em' }}>
+              {(site.displayName ?? site.url).replace(/^https?:\/\//, '').replace(/\/$/, '').toUpperCase()}
             </div>
             {site.accountEmail && (
               <div style={{ fontSize: 11, color: '#9ca3af' }}>{site.accountEmail}</div>

@@ -26,17 +26,15 @@ export default function SiteCard({ site, onSync, onDelete, syncing }: Props) {
 
   return (
     <div
-      style={{ background: '#fff', border: '0.5px solid rgba(0,0,0,0.08)', borderRadius: 14, overflow: 'hidden', display: 'flex', flexDirection: 'column', transition: 'border-color 0.15s' }}
+      style={{ background: '#fff', borderRadius: 14, overflow: 'hidden', display: 'flex', flexDirection: 'column' }}
       onMouseEnter={e => ((e.currentTarget as HTMLDivElement).style.borderColor = 'rgba(0,0,0,0.16)')}
       onMouseLeave={e => ((e.currentTarget as HTMLDivElement).style.borderColor = 'rgba(0,0,0,0.08)')}
     >
-      <div style={{ height: 3, background: site.color }} />
-
-      <div style={{ padding: '16px 18px 0' }}>
+<div style={{ padding: '16px 18px 0' }}>
         <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 6 }}>
           <div style={{ flex: 1, minWidth: 0 }}>
-            <div style={{ fontSize: 14, color: site.color, fontWeight: 500, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-              {site.displayName ?? site.url}
+            <div style={{ fontSize: 16, color: '#111', fontWeight: 700, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', letterSpacing: '0.02em' }}>
+              {(site.displayName ?? site.url).replace(/^https?:\/\//, '').replace(/\/$/, '').toUpperCase()}
             </div>
             <div style={{ display: 'flex', alignItems: 'center', gap: 5, marginTop: 3 }}>
               <span style={{ width: 6, height: 6, borderRadius: '50%', background: site.lastSynced ? '#10b981' : '#d1d5db', display: 'inline-block', flexShrink: 0 }} />
@@ -157,7 +155,7 @@ export default function SiteCard({ site, onSync, onDelete, syncing }: Props) {
           </div>
 
           <button
-            onClick={() => { if (confirm(`Ta bort ${site.displayName ?? site.url}?`)) onDelete(site.id) }}
+            onClick={() => { if (confirm(`Ta bort ${(site.displayName ?? site.url).replace(/^https?:\/\//, '').replace(/\/$/, '').toUpperCase()}?`)) onDelete(site.id) }}
             style={{ marginTop: 14, fontSize: 11, color: '#ef4444', background: 'transparent', border: 'none', cursor: 'pointer', padding: 0 }}
           >
             Ta bort sajt
