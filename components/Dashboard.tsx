@@ -66,6 +66,19 @@ export default function Dashboard() {
     return Object.entries(byDate).sort(([a],[b]) => a.localeCompare(b)).map(([date, v]) => ({ date, ...v, ctr: 0, position: 0 }))
   }, [activeTag, overviewData, sites])
 
+  const filteredTotals = useMemo(() => {
+    if (!activeTag) return overviewData?.totals ?? null
+    const allM = sites.flatMap(s => s.metrics)
+    const tc = allM.reduce((s, m) => s + m.clicks, 0)
+    const ti = allM.reduce((s, m) => s + m.impressions, 0)
+    const ac = allM.length ? allM.reduce((s, m) => s + m.ctr, 0) / allM.length : 0
+    const ap = allM.length ? allM.reduce((s, m) => s + m.position, 0) / allM.length : 0
+    const half = Math.floor(allM.length / 2)
+    const prev = allM.slice(0, half).reduce((s, m) => s + m.clicks, 0)
+    const curr = allM.slice(half).reduce((s, m) => s + m.clicks, 0)
+    return { clicks: tc, impressions: ti, ctr: Number(ac.toFixed(1)), position: Number(ap.toFixed(1)), trend: Number((prev > 0 ? ((curr - prev) / prev) * 100 : 0).toFixed(1)) }
+  }, [activeTag, sites, overviewData])
+
   async function handleSync(id: string) {
     setSyncing(p => ({ ...p, [id]: true }))
     await fetch(`/api/sites/${id}/sync`, { method: 'POST' })
@@ -85,7 +98,7 @@ export default function Dashboard() {
     await loadData()
   }
 
-  const totals   = overviewData?.totals
+  const totals   = filteredTotals
   const daily    = filteredDaily
   const trendUp  = (totals?.trend ?? 0) >= 0
   const connectUrl = `/api/auth/google?secret=${process.env.NEXT_PUBLIC_DASHBOARD_SECRET ?? ''}`
@@ -117,17 +130,29 @@ export default function Dashboard() {
           <div style={{ fontSize: 10, letterSpacing: '0.1em', textTransform: 'uppercase', color: '#9ca3af', marginBottom: 3 }}>iCyber AB</div>
           <div style={{ fontSize: 20, fontWeight: 500, color: '#111', letterSpacing: '-0.3px' }}>Dashme</div>
         </div>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
-          <span style={{ fontSize: 11, color: '#9ca3af', padding: '4px 10px', border: '0.5px solid rgba(0,0,0,0.08)', borderRadius: 20 }}>Last 28 days</span>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 4, flexWrap: 'wrap' }}>
+          <span style={{ fontSize: 11, color: '#9ca3af', padding: '5px 12px', background: '#f0eeeb', borderRadius: 8, marginRight: 4 }}>Last 28 days</span>
           {navTabs.map(t => (
-            <button key={t.key} onClick={() => setView(t.key)} style={{ ...s.tabBtn, ...(view === t.key ? { background: '#111', color: '#fff', borderColor: '#111' } : {}) }}>
+            <button key={t.key} onClick={() => setView(t.key)} style={{
+              padding: '6px 14px', borderRadius: 8, border: 'none', cursor: 'pointer', fontSize: 13, fontWeight: view === t.key ? 500 : 400,
+              background: view === t.key ? '#111' : '#f0eeeb',
+              color: view === t.key ? '#fff' : '#374151',
+              transition: 'all 0.15s',
+            }}>
               {t.label}
             </button>
           ))}
-          <button onClick={handleSyncAll} disabled={syncingAll} style={{ ...s.tabBtn, color: syncingAll ? '#d1d5db' : '#6366f1', borderColor: 'rgba(99,102,241,0.3)' }}>
+          <div style={{ width: 1, height: 20, background: 'rgba(0,0,0,0.08)', margin: '0 4px' }} />
+          <button onClick={handleSyncAll} disabled={syncingAll} style={{
+            padding: '6px 14px', borderRadius: 8, border: 'none', cursor: syncingAll ? 'not-allowed' : 'pointer', fontSize: 13,
+            background: syncingAll ? '#f0eeeb' : '#6366f1', color: syncingAll ? '#9ca3af' : '#fff', fontWeight: 500, transition: 'all 0.15s',
+          }}>
             {syncingAll ? 'Syncing…' : 'Sync all'}
           </button>
-          <button onClick={async () => { await fetch('/api/logout', { method: 'POST' }); window.location.href = '/login' }} style={{ ...s.tabBtn, color: '#9ca3af' }}>
+          <button onClick={async () => { await fetch('/api/logout', { method: 'POST' }); window.location.href = '/login' }} style={{
+            padding: '6px 14px', borderRadius: 8, border: 'none', cursor: 'pointer', fontSize: 13,
+            background: '#f0eeeb', color: '#6b7280', transition: 'all 0.15s',
+          }}>
             Logga ut
           </button>
         </div>
