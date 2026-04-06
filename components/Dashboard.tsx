@@ -222,9 +222,9 @@ export default function Dashboard() {
         </>
       )}
 
-      {/* SITES — 10 columns */}
+      {/* SITES — 5 cols desktop, responsive */}
       {view === 'sites' && (
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(10, minmax(0,1fr))', gap: 8 }}>
+        <div className="sites-grid">
           {sites.map(site => (
             <SiteCard key={site.id} site={site} onSync={handleSync} onDelete={handleDelete} syncing={!!syncing[site.id]} />
           ))}
