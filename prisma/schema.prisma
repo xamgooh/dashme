@@ -18,6 +18,22 @@ model Account {
   sites        Site[]
 }
 
+model Tag {
+  id        String    @id @default(cuid())
+  name      String    @unique
+  color     String    @default("#818cf8")
+  createdAt DateTime  @default(now())
+  sites     SiteTag[]
+}
+
+model SiteTag {
+  siteId String
+  tagId  String
+  site   Site   @relation(fields: [siteId], references: [id], onDelete: Cascade)
+  tag    Tag    @relation(fields: [tagId], references: [id], onDelete: Cascade)
+  @@id([siteId, tagId])
+}
+
 model Site {
   id          String    @id @default(cuid())
   accountId   String
@@ -29,6 +45,7 @@ model Site {
   lastSynced  DateTime?
   createdAt   DateTime  @default(now())
   account     Account   @relation(fields: [accountId], references: [id], onDelete: Cascade)
+  tags        SiteTag[]
   metrics     SiteMetric[]
   pages       SitePage[]
   keywords    SiteKeyword[]

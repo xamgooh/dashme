@@ -6,8 +6,9 @@ interface P { pageUrl: string; clicks: number; impressions: number; ctr: number;
 interface K { keyword: string; clicks: number; impressions: number; ctr: number; position: number }
 interface C { country: string; clicks: number; impressions: number; ctr: number; position: number }
 interface S {
-  id: string; url: string; displayName: string | null; active: boolean; color: string
-  lastSynced: Date | null; account: { email: string; connected: boolean }
+  id: string; url: string; displayName: string | null; active: boolean; color: string; lastSynced: Date | null
+  account: { email: string; connected: boolean }
+  tags: { tag: { id: string; name: string; color: string } }[]
   metrics: M[]; pages: P[]; keywords: K[]; countries: C[]
 }
 
@@ -17,6 +18,7 @@ export async function GET() {
     orderBy: { createdAt: 'asc' },
     include: {
       account:   { select: { email: true, connected: true } },
+      tags:      { include: { tag: { select: { id: true, name: true, color: true } } } },
       metrics:   { orderBy: { date: 'asc' } },
       pages:     { orderBy: { clicks: 'desc' }, take: 20 },
       keywords:  { orderBy: { clicks: 'desc' }, take: 10 },
@@ -36,6 +38,7 @@ export async function GET() {
       id: site.id, url: site.url, displayName: site.displayName,
       accountEmail: site.account.email, active: site.active,
       color: site.color, lastSynced: site.lastSynced?.toISOString() ?? null,
+      tags: site.tags.map(st => st.tag),
       totals: { clicks: tc, impressions: ti, ctr: Number(ac.toFixed(1)), position: Number(ap.toFixed(1)), trend: Number((prev > 0 ? ((curr - prev) / prev) * 100 : 0).toFixed(1)) },
       metrics:   site.metrics.map((m: M) => ({ date: m.date.toISOString().split('T')[0], clicks: m.clicks, impressions: m.impressions, ctr: Number(m.ctr.toFixed(1)), position: Number(m.position.toFixed(1)) })),
       pages:     site.pages.map((p: P) => ({ pageUrl: p.pageUrl, clicks: p.clicks, impressions: p.impressions, ctr: Number(p.ctr.toFixed(1)), position: Number(p.position.toFixed(1)), trendPct: Number(p.trendPct.toFixed(1)) })),

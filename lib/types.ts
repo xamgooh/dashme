@@ -2,10 +2,12 @@ export type DailyMetric = { date: string; clicks: number; impressions: number; c
 export type PageRow     = { pageUrl: string; clicks: number; impressions: number; ctr: number; position: number; trendPct: number }
 export type KeywordRow  = { keyword: string; clicks: number; impressions: number; ctr: number; position: number }
 export type CountryRow  = { country: string; clicks: number; impressions: number; ctr: number; position: number }
+export type TagRef      = { id: string; name: string; color: string }
 
 export type SiteWithData = {
   id: string; url: string; displayName: string | null; accountEmail: string | null
   active: boolean; color: string; lastSynced: string | null
+  tags: TagRef[]
   totals: { clicks: number; impressions: number; ctr: number; position: number; trend: number }
   metrics: DailyMetric[]; pages: PageRow[]; keywords: KeywordRow[]; countries: CountryRow[]
 }
@@ -18,4 +20,9 @@ export type AccountSite = {
 export type Account = {
   id: string; email: string; connected: boolean; createdAt: string
   sites: AccountSite[]
+}
+
+export type Tag = {
+  id: string; name: string; color: string
+  sites: { id: string; displayName: string | null; url: string; color: string }[]
 }
