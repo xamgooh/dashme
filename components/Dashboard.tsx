@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback, useMemo } from 'react'
 import dynamic from 'next/dynamic'
 import SiteCard from './SiteCard'
+import SiteCardLarge from './SiteCardLarge'
 import AccountsView from './AccountsView'
 import TagsView from './TagsView'
 import { SiteWithData, DailyMetric, Account, Tag } from '@/lib/types'
@@ -39,6 +40,7 @@ export default function Dashboard() {
   const [syncing, setSyncing]       = useState<Record<string, boolean>>({})
   const [syncingAll, setSyncingAll] = useState(false)
   const [activeTag, setActiveTag]   = useState<string | null>(null)
+  const [showAll, setShowAll]         = useState(false)
 
   const loadData = useCallback(async () => {
     try {
@@ -174,7 +176,8 @@ export default function Dashboard() {
               </div>
             ))}
           </div>
-          <div style={{ ...s.card, marginBottom: 14 }}>
+
+          <div style={{ ...s.card, marginBottom: 20 }}>
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
               <div style={s.secLbl}>Clicks & Impressions — 28 days</div>
               <div style={{ display: 'flex', gap: 14, fontSize: 11, color: '#9ca3af' }}>
@@ -186,46 +189,36 @@ export default function Dashboard() {
               {daily.length > 0 ? <MainChart data={daily} /> : <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%', color: '#d1d5db', fontSize: 13 }}>Synca sajter för att se data</div>}
             </div>
           </div>
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
-            <div style={s.card}>
-              <div style={s.secLbl}>Top sites</div>
-              {sites.map(site => {
-                const pct = Math.round((site.totals.clicks / (sites[0]?.totals.clicks || 1)) * 100)
-                return (
-                  <div key={site.id} style={{ marginBottom: 12 }}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12, marginBottom: 4 }}>
-                      <span style={{ color: '#111', fontWeight: 500 }}>{site.displayName ?? site.url}</span>
-                      <span style={{ color: '#9ca3af' }}>{fmtN(site.totals.clicks)}</span>
-                    </div>
-                    <div style={{ height: 2, background: 'rgba(0,0,0,0.06)', borderRadius: 2 }}>
-                      <div style={{ height: 2, width: `${pct}%`, background: site.color, borderRadius: 2 }} />
-                    </div>
+
+          {/* Site cards — sorted by clicks, 3 per row */}
+          {(() => {
+            const sorted = [...sites].sort((a, b) => b.totals.clicks - a.totals.clicks)
+            const visible = showAll ? sorted : sorted.slice(0, 9)
+            return (
+              <>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, minmax(0,1fr))', gap: 14, marginBottom: 16 }}>
+                  {visible.map(site => (
+                    <SiteCardLarge key={site.id} site={site} onSync={handleSync} onDelete={handleDelete} syncing={!!syncing[site.id]} />
+                  ))}
+                </div>
+                {sorted.length > 9 && (
+                  <div style={{ textAlign: 'center' }}>
+                    <button
+                      onClick={() => setShowAll(p => !p)}
+                      style={{ padding: '8px 24px', borderRadius: 20, border: '0.5px solid rgba(0,0,0,0.1)', background: 'transparent', color: '#6b7280', fontSize: 13, cursor: 'pointer' }}
+                    >
+                      {showAll ? `Visa färre` : `Visa alla ${sorted.length} sajter`}
+                    </button>
                   </div>
-                )
-              })}
-              {sites.length === 0 && <div style={{ fontSize: 12, color: '#d1d5db' }}>Inga sajter</div>}
-            </div>
-            <div style={s.card}>
-              <div style={s.secLbl}>Top countries</div>
-              {(() => {
-                const merged: Record<string, number> = {}
-                sites.flatMap(s => s.countries).forEach(c => { merged[c.country] = (merged[c.country] ?? 0) + c.clicks })
-                const sorted = Object.entries(merged).sort(([,a],[,b]) => b - a).slice(0, 7)
-                const maxC = sorted[0]?.[1] ?? 1
-                return sorted.map(([country, clicks], i) => (
-                  <div key={country} style={{ marginBottom: 12 }}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12, marginBottom: 4 }}>
-                      <span style={{ color: '#111', fontWeight: 500 }}>{country}</span>
-                      <span style={{ color: '#9ca3af' }}>{fmtN(clicks)}</span>
-                    </div>
-                    <div style={{ height: 2, background: 'rgba(0,0,0,0.06)', borderRadius: 2 }}>
-                      <div style={{ height: 2, width: `${Math.round((clicks/maxC)*100)}%`, background: PALETTE[i % PALETTE.length], borderRadius: 2 }} />
-                    </div>
+                )}
+                {sites.length === 0 && (
+                  <div style={{ textAlign: 'center', padding: '3rem', color: '#d1d5db', fontSize: 13 }}>
+                    Inga aktiva sajter — gå till Accounts
                   </div>
-                ))
-              })()}
-            </div>
-          </div>
+                )}
+              </>
+            )
+          })()}
         </>
       )}
 
