@@ -144,6 +144,12 @@ export default function Dashboard() {
           >
             + Connect site
           </a>
+          <button
+            onClick={async () => { await fetch('/api/logout', { method: 'POST' }); window.location.href = '/login' }}
+            style={{ ...s.tabBtn, color: '#50507a' }}
+          >
+            Logga ut
+          </button>
         </div>
       </div>
 
