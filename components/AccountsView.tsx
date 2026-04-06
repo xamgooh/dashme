@@ -1,23 +1,7 @@
 'use client'
 
 import { useState } from 'react'
-
-type AccountSite = {
-  id: string
-  url: string
-  displayName: string | null
-  active: boolean
-  color: string
-  lastSynced: string | null
-}
-
-type Account = {
-  id: string
-  email: string
-  connected: boolean
-  createdAt: string
-  sites: AccountSite[]
-}
+import { Account } from '@/lib/types'
 
 type Props = {
   accounts: Account[]
@@ -25,14 +9,10 @@ type Props = {
   connectUrl: string
 }
 
-function fmtN(n: number) {
-  if (n >= 1000) return Math.round(n / 1000) + 'K'
-  return String(n)
-}
-
 export default function AccountsView({ accounts, onRefresh, connectUrl }: Props) {
-  const [busy, setBusy] = useState<Record<string, boolean>>({})
+  const [busy, setBusy]           = useState<Record<string, boolean>>({})
   const [confirming, setConfirming] = useState<string | null>(null)
+  const [expanded, setExpanded]   = useState<Record<string, boolean>>({})
 
   async function toggleConnect(account: Account) {
     setBusy(p => ({ ...p, [account.id]: true }))
@@ -64,142 +44,155 @@ export default function AccountsView({ accounts, onRefresh, connectUrl }: Props)
     setBusy(p => ({ ...p, [siteId]: false }))
   }
 
-  const card: React.CSSProperties = { background: '#131318', border: '1px solid rgba(255,255,255,0.07)', borderRadius: 12, padding: '1.25rem', marginBottom: 16 }
+  const card: React.CSSProperties = {
+    background: '#131318',
+    border: '1px solid rgba(255,255,255,0.07)',
+    borderRadius: 12,
+    marginBottom: 10,
+    overflow: 'hidden',
+  }
 
   return (
     <div>
       {accounts.length === 0 && (
-        <div style={{ ...card, textAlign: 'center', padding: '3rem', color: '#50507a' }}>
-          Inga konton connectedade — klicka Connect account
+        <div style={{ ...card, padding: '3rem', textAlign: 'center', color: '#50507a' }}>
+          Inga konton connectedade — klicka Connect account nedan
         </div>
       )}
 
-      {accounts.map(account => (
-        <div key={account.id} style={card}>
-          {/* Account header */}
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-              <div style={{ width: 36, height: 36, borderRadius: '50%', background: account.connected ? 'rgba(52,211,153,0.12)' : 'rgba(255,255,255,0.05)', display: 'flex', alignItems: 'center', justifyContent: 'center', transition: 'background 0.2s' }}>
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none">
-                  <circle cx="12" cy="8" r="4" stroke={account.connected ? '#34d399' : '#50507a'} strokeWidth="1.5"/>
-                  <path d="M4 20c0-4 3.6-7 8-7s8 3 8 7" stroke={account.connected ? '#34d399' : '#50507a'} strokeWidth="1.5" strokeLinecap="round"/>
-                </svg>
-              </div>
-              <div>
-                <div style={{ fontSize: 14, fontWeight: 500, color: '#e8e8f4' }}>{account.email}</div>
-                <div style={{ fontSize: 11, color: '#50507a', marginTop: 2 }}>
-                  {account.sites.filter(s => s.active).length} av {account.sites.length} sajter aktiva
-                  {' · '}Connected {new Date(account.createdAt).toLocaleDateString('sv-SE')}
-                </div>
-              </div>
-            </div>
+      {accounts.map(account => {
+        const isExpanded = !!expanded[account.id]
+        const activeCnt  = account.sites.filter(s => s.active).length
 
-            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-              {/* Disconnect/Connect toggle */}
-              {!account.connected && (
-                <button
-                  onClick={() => setConfirming(confirming === account.id ? null : account.id)}
-                  style={{ padding: '5px 12px', fontSize: 12, borderRadius: 7, border: '1px solid rgba(248,113,113,0.3)', background: 'transparent', color: '#f87171', cursor: 'pointer' }}
-                >
-                  Remove
-                </button>
-              )}
-              <button
-                onClick={() => toggleConnect(account)}
-                disabled={busy[account.id]}
-                style={{
-                  padding: '5px 14px', fontSize: 12, borderRadius: 7, cursor: busy[account.id] ? 'not-allowed' : 'pointer',
-                  border: account.connected ? '1px solid rgba(248,113,113,0.3)' : '1px solid rgba(52,211,153,0.3)',
-                  background: 'transparent',
-                  color: busy[account.id] ? '#50507a' : account.connected ? '#f87171' : '#34d399',
-                  transition: 'all 0.15s',
-                }}
+        return (
+          <div key={account.id} style={card}>
+            {/* Account row */}
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '12px 16px' }}>
+              {/* Left: expand arrow + info */}
+              <div
+                style={{ display: 'flex', alignItems: 'center', gap: 10, cursor: 'pointer', flex: 1, minWidth: 0 }}
+                onClick={() => setExpanded(p => ({ ...p, [account.id]: !p[account.id] }))}
               >
-                {busy[account.id] ? '…' : account.connected ? 'Disconnect' : 'Connect'}
-              </button>
-            </div>
-          </div>
+                <svg
+                  width="14" height="14" viewBox="0 0 14 14" fill="none"
+                  style={{ transform: isExpanded ? 'rotate(90deg)' : 'rotate(0deg)', transition: 'transform 0.2s', flexShrink: 0 }}
+                >
+                  <path d="M5 3l4 4-4 4" stroke="#50507a" strokeWidth="1.3" strokeLinecap="round" strokeLinejoin="round"/>
+                </svg>
+                <div style={{ width: 30, height: 30, borderRadius: '50%', background: account.connected ? 'rgba(52,211,153,0.12)' : 'rgba(255,255,255,0.05)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none">
+                    <circle cx="12" cy="8" r="4" stroke={account.connected ? '#34d399' : '#50507a'} strokeWidth="1.5"/>
+                    <path d="M4 20c0-4 3.6-7 8-7s8 3 8 7" stroke={account.connected ? '#34d399' : '#50507a'} strokeWidth="1.5" strokeLinecap="round"/>
+                  </svg>
+                </div>
+                <div style={{ minWidth: 0 }}>
+                  <div style={{ fontSize: 13, fontWeight: 500, color: '#e8e8f4', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                    {account.email}
+                  </div>
+                  <div style={{ fontSize: 11, color: '#50507a', marginTop: 2 }}>
+                    {activeCnt} av {account.sites.length} sajter aktiva · Connected {new Date(account.createdAt).toLocaleDateString('sv-SE')}
+                  </div>
+                </div>
+              </div>
 
-          {/* Remove confirmation */}
-          {confirming === account.id && (
-            <div style={{ background: 'rgba(248,113,113,0.08)', border: '1px solid rgba(248,113,113,0.2)', borderRadius: 8, padding: '12px 16px', marginBottom: 16, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-              <span style={{ fontSize: 13, color: '#f87171' }}>Ta bort kontot och alla dess sajter permanent?</span>
-              <div style={{ display: 'flex', gap: 8 }}>
-                <button onClick={() => setConfirming(null)} style={{ padding: '4px 12px', fontSize: 12, borderRadius: 6, border: '1px solid rgba(255,255,255,0.1)', background: 'transparent', color: '#7070a0', cursor: 'pointer' }}>Avbryt</button>
-                <button onClick={() => removeAccount(account.id)} disabled={busy[account.id]} style={{ padding: '4px 12px', fontSize: 12, borderRadius: 6, border: 'none', background: '#f87171', color: '#fff', cursor: 'pointer', fontWeight: 500 }}>
-                  {busy[account.id] ? '…' : 'Ta bort'}
+              {/* Right: buttons */}
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexShrink: 0, marginLeft: 16 }}>
+                {!account.connected && (
+                  <button
+                    onClick={() => setConfirming(confirming === account.id ? null : account.id)}
+                    style={{ padding: '4px 10px', fontSize: 11, borderRadius: 6, border: '1px solid rgba(248,113,113,0.3)', background: 'transparent', color: '#f87171', cursor: 'pointer' }}
+                  >
+                    Remove
+                  </button>
+                )}
+                <button
+                  onClick={() => toggleConnect(account)}
+                  disabled={busy[account.id]}
+                  style={{
+                    padding: '4px 12px', fontSize: 12, borderRadius: 6, cursor: busy[account.id] ? 'not-allowed' : 'pointer',
+                    border: account.connected ? '1px solid rgba(248,113,113,0.3)' : '1px solid rgba(52,211,153,0.3)',
+                    background: 'transparent',
+                    color: busy[account.id] ? '#50507a' : account.connected ? '#f87171' : '#34d399',
+                  }}
+                >
+                  {busy[account.id] ? '…' : account.connected ? 'Disconnect' : 'Connect'}
                 </button>
               </div>
             </div>
-          )}
 
-          {/* Disconnected notice */}
-          {!account.connected && (
-            <div style={{ padding: '10px 14px', borderRadius: 8, background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.06)', marginBottom: 12, fontSize: 12, color: '#50507a' }}>
-              Kontot är disconnectat — data synkas inte. Klicka Connect för att aktivera igen, eller lägg till kontot på nytt via Connect account.
-            </div>
-          )}
-
-          {/* Sites list */}
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-            {account.sites.map(site => (
-              <div key={site.id} style={{
-                display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-                padding: '10px 12px', borderRadius: 8,
-                background: site.active && account.connected ? 'rgba(255,255,255,0.03)' : 'transparent',
-                border: '1px solid rgba(255,255,255,0.05)',
-                opacity: account.connected ? 1 : 0.4,
-                transition: 'all 0.15s',
-              }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                  <div style={{ width: 10, height: 10, borderRadius: 2, background: site.color, opacity: site.active ? 1 : 0.3, flexShrink: 0 }} />
-                  <div>
-                    <div style={{ fontSize: 13, color: site.active ? '#e8e8f4' : '#50507a', fontWeight: 500 }}>
-                      {site.displayName ?? site.url}
-                    </div>
-                    {site.lastSynced && (
-                      <div style={{ fontSize: 11, color: '#50507a', marginTop: 2 }}>
-                        Senaste sync {new Date(site.lastSynced).toLocaleDateString('sv-SE')}
-                      </div>
-                    )}
-                  </div>
-                </div>
-
-                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                  <span style={{ fontSize: 11, color: site.active ? '#34d399' : '#50507a' }}>
-                    {site.active ? 'Aktiv' : 'Inaktiv'}
-                  </span>
-                  {/* Toggle */}
-                  <div
-                    onClick={() => account.connected && !busy[site.id] && toggleSite(site.id, !site.active)}
-                    style={{
-                      width: 40, height: 22, borderRadius: 11, position: 'relative',
-                      cursor: account.connected && !busy[site.id] ? 'pointer' : 'not-allowed',
-                      background: site.active && account.connected ? '#818cf8' : 'rgba(255,255,255,0.1)',
-                      transition: 'background 0.2s',
-                      opacity: busy[site.id] ? 0.5 : 1,
-                    }}
-                  >
-                    <div style={{
-                      position: 'absolute', top: 3, width: 16, height: 16, borderRadius: '50%', background: '#fff',
-                      left: site.active ? 21 : 3, transition: 'left 0.2s',
-                    }} />
-                  </div>
+            {/* Remove confirmation */}
+            {confirming === account.id && (
+              <div style={{ margin: '0 16px 12px', background: 'rgba(248,113,113,0.08)', border: '1px solid rgba(248,113,113,0.2)', borderRadius: 8, padding: '10px 14px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                <span style={{ fontSize: 12, color: '#f87171' }}>Ta bort kontot och alla sajter permanent?</span>
+                <div style={{ display: 'flex', gap: 8 }}>
+                  <button onClick={() => setConfirming(null)} style={{ padding: '3px 10px', fontSize: 11, borderRadius: 6, border: '1px solid rgba(255,255,255,0.1)', background: 'transparent', color: '#7070a0', cursor: 'pointer' }}>Avbryt</button>
+                  <button onClick={() => removeAccount(account.id)} disabled={busy[account.id]} style={{ padding: '3px 10px', fontSize: 11, borderRadius: 6, border: 'none', background: '#f87171', color: '#fff', cursor: 'pointer', fontWeight: 500 }}>
+                    {busy[account.id] ? '…' : 'Ta bort'}
+                  </button>
                 </div>
               </div>
-            ))}
+            )}
+
+            {/* Expanded: sites as chips */}
+            {isExpanded && (
+              <div style={{ borderTop: '1px solid rgba(255,255,255,0.06)', padding: '14px 16px' }}>
+                {!account.connected && (
+                  <div style={{ fontSize: 12, color: '#50507a', marginBottom: 10, padding: '8px 12px', background: 'rgba(255,255,255,0.02)', borderRadius: 8 }}>
+                    Kontot är disconnectat — aktivera kontot för att synca data
+                  </div>
+                )}
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
+                  {account.sites.map(site => {
+                    const isActive = site.active
+                    const isBusy   = busy[site.id]
+                    return (
+                      <div
+                        key={site.id}
+                        onClick={() => account.connected && !isBusy && toggleSite(site.id, !isActive)}
+                        title={site.url}
+                        style={{
+                          display: 'flex', alignItems: 'center', gap: 6,
+                          padding: '5px 10px', borderRadius: 20,
+                          border: isActive ? `1px solid ${site.color}50` : '1px solid rgba(255,255,255,0.08)',
+                          background: isActive ? `${site.color}12` : 'rgba(255,255,255,0.02)',
+                          cursor: account.connected && !isBusy ? 'pointer' : 'not-allowed',
+                          opacity: isBusy ? 0.5 : account.connected ? 1 : 0.4,
+                          transition: 'all 0.15s',
+                          maxWidth: 220,
+                        }}
+                      >
+                        <div style={{ width: 7, height: 7, borderRadius: 2, background: site.color, flexShrink: 0, opacity: isActive ? 1 : 0.4 }} />
+                        <span style={{
+                          fontSize: 12, color: isActive ? '#e8e8f4' : '#7070a0',
+                          whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
+                        }}>
+                          {site.displayName ?? site.url}
+                        </span>
+                        {isActive && (
+                          <svg width="8" height="8" viewBox="0 0 8 8" fill="none" style={{ flexShrink: 0 }}>
+                            <path d="M1.5 4l2 2 3-3" stroke={site.color} strokeWidth="1.3" strokeLinecap="round" strokeLinejoin="round"/>
+                          </svg>
+                        )}
+                      </div>
+                    )
+                  })}
+                </div>
+              </div>
+            )}
           </div>
-        </div>
-      ))}
+        )
+      })}
 
       {/* Connect new account */}
       <a href={connectUrl} style={{
-        display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 10,
-        padding: '14px', borderRadius: 12, border: '1px dashed rgba(52,211,153,0.3)',
+        display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
+        padding: '12px', borderRadius: 12, border: '1px dashed rgba(52,211,153,0.3)',
         background: 'transparent', textDecoration: 'none', color: '#34d399', fontSize: 13,
-        transition: 'all 0.15s', cursor: 'pointer',
+        marginTop: 4, cursor: 'pointer',
       }}>
-        <svg width="14" height="14" viewBox="0 0 14 14" fill="none"><path d="M7 2v10M2 7h10" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round"/></svg>
+        <svg width="12" height="12" viewBox="0 0 12 12" fill="none">
+          <path d="M6 1v10M1 6h10" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round"/>
+        </svg>
         Connect account
       </a>
     </div>
