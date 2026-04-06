@@ -13,11 +13,7 @@ function client() {
 export function getAuthUrl() {
   return client().generateAuthUrl({
     access_type: 'offline',
-    scope: [
-      'openid',
-      'email',
-      'https://www.googleapis.com/auth/webmasters.readonly',
-    ],
+    scope: ['openid', 'email', 'https://www.googleapis.com/auth/webmasters.readonly'],
     prompt: 'consent',
   })
 }
@@ -31,39 +27,41 @@ export async function getAccountEmail(accessToken: string): Promise<string> {
   try {
     const c = client()
     c.setCredentials({ access_token: accessToken })
-    const oauth2 = google.oauth2({ version: 'v2', auth: c })
-    const { data } = await oauth2.userinfo.get()
+    const { data } = await google.oauth2({ version: 'v2', auth: c }).userinfo.get()
     return data.email ?? 'unknown'
-  } catch {
-    return 'unknown'
-  }
+  } catch { return 'unknown' }
 }
 
 export async function listProperties(accessToken: string, refreshToken: string) {
   const c = client()
   c.setCredentials({ access_token: accessToken, refresh_token: refreshToken })
-  const sc = google.searchconsole({ version: 'v1', auth: c })
-  const { data } = await sc.sites.list()
+  const { data } = await google.searchconsole({ version: 'v1', auth: c }).sites.list()
   return data.siteEntry ?? []
 }
 
 export async function syncSite(siteId: string) {
-  const site = await db.site.findUniqueOrThrow({ where: { id: siteId } })
+  const site = await db.site.findUniqueOrThrow({
+    where: { id: siteId },
+    include: { account: true },
+  })
+
+  if (!site.account.connected) return
+
   const c = client()
   c.setCredentials({
-    access_token: site.accessToken,
-    refresh_token: site.refreshToken,
-    expiry_date: site.tokenExpiry.getTime(),
+    access_token: site.account.accessToken,
+    refresh_token: site.account.refreshToken,
+    expiry_date: site.account.tokenExpiry.getTime(),
   })
   c.on('tokens', async (t) => {
-    if (t.access_token) await db.site.update({
-      where: { id: siteId },
+    if (t.access_token) await db.account.update({
+      where: { id: site.accountId },
       data: { accessToken: t.access_token, tokenExpiry: new Date(t.expiry_date ?? Date.now() + 3600000) },
     })
   })
 
   const sc = google.searchconsole({ version: 'v1', auth: c })
-  const now = new Date()
+  const now   = new Date()
   const end   = now.toISOString().split('T')[0]
   const mid   = new Date(now.getTime() - 14 * 86400000).toISOString().split('T')[0]
   const start = new Date(now.getTime() - 28 * 86400000).toISOString().split('T')[0]
@@ -71,23 +69,20 @@ export async function syncSite(siteId: string) {
   type Row = { keys?: string[] | null; clicks?: number | null; impressions?: number | null; ctr?: number | null; position?: number | null }
 
   const base = { siteUrl: site.propertyUrl }
-
   const [daily, pagesRecent, pagesPrev, kws, countries] = await Promise.all([
-    sc.searchanalytics.query({ ...base, requestBody: { startDate: start, endDate: end, dimensions: ['date'], rowLimit: 28 } }),
-    sc.searchanalytics.query({ ...base, requestBody: { startDate: mid,   endDate: end,   dimensions: ['page'], rowLimit: 100 } }),
-    sc.searchanalytics.query({ ...base, requestBody: { startDate: start, endDate: mid,   dimensions: ['page'], rowLimit: 100 } }),
+    sc.searchanalytics.query({ ...base, requestBody: { startDate: start, endDate: end,   dimensions: ['date'],    rowLimit: 28 } }),
+    sc.searchanalytics.query({ ...base, requestBody: { startDate: mid,   endDate: end,   dimensions: ['page'],    rowLimit: 100 } }),
+    sc.searchanalytics.query({ ...base, requestBody: { startDate: start, endDate: mid,   dimensions: ['page'],    rowLimit: 100 } }),
     sc.searchanalytics.query({ ...base, requestBody: { startDate: start, endDate: end,   dimensions: ['query'],   rowLimit: 100 } }),
     sc.searchanalytics.query({ ...base, requestBody: { startDate: start, endDate: end,   dimensions: ['country'], rowLimit: 100 } }),
   ])
 
-  // Build prev-period lookup for trend calculation
   const prevMap: Record<string, number> = {}
   for (const r of (pagesPrev.data.rows ?? []) as Row[]) {
     if (r.keys?.[0]) prevMap[r.keys[0]] = r.clicks ?? 0
   }
 
-  const pageRows = (pagesRecent.data.rows ?? []) as Row[]
-  const pageData = pageRows.map((r: Row) => {
+  const pageData = ((pagesRecent.data.rows ?? []) as Row[]).map((r: Row) => {
     const url = r.keys![0]
     const curr = r.clicks ?? 0
     const prev = prevMap[url] ?? 0
@@ -104,7 +99,7 @@ export async function syncSite(siteId: string) {
       siteId, date: new Date(r.keys![0]), clicks: r.clicks ?? 0,
       impressions: r.impressions ?? 0, ctr: (r.ctr ?? 0) * 100, position: r.position ?? 0,
     }})),
-    ...pageData.map((p) => db.sitePage.create({ data: {
+    ...pageData.map(p => db.sitePage.create({ data: {
       siteId, pageUrl: p.url, clicks: p.clicks,
       impressions: p.impressions, ctr: p.ctr, position: p.position, trendPct: p.trend,
     }})),

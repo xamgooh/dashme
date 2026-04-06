@@ -6,9 +6,9 @@ export const dynamic = 'force-dynamic'
 const COLORS = ['#818cf8','#34d399','#f472b6','#fb923c','#38bdf8','#a78bfa','#4ade80','#fbbf24']
 
 export async function GET(req: NextRequest) {
-  const { searchParams } = new URL(req.url)
-  const code = searchParams.get('code')
+  const code = new URL(req.url).searchParams.get('code')
   if (!code) return NextResponse.redirect(new URL('/dashboard?error=denied', req.url))
+
   try {
     const tokens = await exchangeCode(code)
     if (!tokens.access_token || !tokens.refresh_token)
@@ -19,25 +19,46 @@ export async function GET(req: NextRequest) {
       getAccountEmail(tokens.access_token),
     ])
 
-    const existing = new Set((await db.site.findMany({ select: { propertyUrl: true } })).map((s: { propertyUrl: string }) => s.propertyUrl))
-    const count = await db.site.count()
+    const expiry = new Date(tokens.expiry_date ?? Date.now() + 3600000)
+
+    // Upsert account — creates new or reconnects existing
+    const account = await db.account.upsert({
+      where: { email },
+      update: {
+        accessToken:  tokens.access_token,
+        refreshToken: tokens.refresh_token,
+        tokenExpiry:  expiry,
+        connected:    true,
+      },
+      create: {
+        email,
+        accessToken:  tokens.access_token,
+        refreshToken: tokens.refresh_token,
+        tokenExpiry:  expiry,
+        connected:    true,
+      },
+    })
+
+    // Add any new sites not already in DB
+    const existing = new Set(
+      (await db.site.findMany({ where: { accountId: account.id }, select: { propertyUrl: true } }))
+        .map((s: { propertyUrl: string }) => s.propertyUrl)
+    )
+    const siteCount = await db.site.count()
 
     await Promise.all(
       props
         .filter((p: { siteUrl?: string | null }) => p.siteUrl && !existing.has(p.siteUrl))
         .map((p: { siteUrl?: string | null }, i: number) => db.site.create({ data: {
-          url: (p.siteUrl ?? '').replace(/^sc-domain:/, '').replace(/\/$/, ''),
+          accountId:   account.id,
+          url:         (p.siteUrl ?? '').replace(/^sc-domain:/, '').replace(/\/$/, ''),
           propertyUrl: p.siteUrl!,
           displayName: (p.siteUrl ?? '').replace(/^sc-domain:/, '').replace(/\/$/, ''),
-          accountEmail: email,
-          accessToken: tokens.access_token!,
-          refreshToken: tokens.refresh_token!,
-          tokenExpiry: new Date(tokens.expiry_date ?? Date.now() + 3600000),
-          color: COLORS[(count + i) % COLORS.length],
+          color:       COLORS[(siteCount + i) % COLORS.length],
         }}))
     )
 
-    return NextResponse.redirect(new URL('/dashboard', req.url))
+    return NextResponse.redirect(new URL('/dashboard/accounts', req.url))
   } catch (e) {
     console.error(e)
     return NextResponse.redirect(new URL('/dashboard?error=failed', req.url))

@@ -3,12 +3,9 @@ import { db } from '@/lib/db'
 export const dynamic = 'force-dynamic'
 
 export async function PATCH(req: NextRequest, { params }: { params: { id: string } }) {
-  const body = await req.json()
-  const site = await db.site.update({
-    where: { id: params.id },
-    data: { active: body.active },
-  })
-  return Response.json({ ok: true, active: site.active })
+  const { active } = await req.json()
+  await db.site.update({ where: { id: params.id }, data: { active } })
+  return Response.json({ ok: true })
 }
 
 export async function DELETE(_req: NextRequest, { params }: { params: { id: string } }) {

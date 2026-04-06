@@ -2,9 +2,20 @@ export type DailyMetric = { date: string; clicks: number; impressions: number; c
 export type PageRow     = { pageUrl: string; clicks: number; impressions: number; ctr: number; position: number; trendPct: number }
 export type KeywordRow  = { keyword: string; clicks: number; impressions: number; ctr: number; position: number }
 export type CountryRow  = { country: string; clicks: number; impressions: number; ctr: number; position: number }
+
 export type SiteWithData = {
   id: string; url: string; displayName: string | null; accountEmail: string | null
   active: boolean; color: string; lastSynced: string | null
   totals: { clicks: number; impressions: number; ctr: number; position: number; trend: number }
   metrics: DailyMetric[]; pages: PageRow[]; keywords: KeywordRow[]; countries: CountryRow[]
+}
+
+export type AccountSite = {
+  id: string; url: string; displayName: string | null
+  active: boolean; color: string; lastSynced: string | null
+}
+
+export type Account = {
+  id: string; email: string; connected: boolean; createdAt: string
+  sites: AccountSite[]
 }

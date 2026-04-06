@@ -7,23 +7,32 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
-model Site {
-  id           String    @id @default(cuid())
-  url          String    @unique
-  propertyUrl  String
-  displayName  String?
-  accountEmail String?
-  active       Boolean   @default(true)
+model Account {
+  id           String   @id @default(cuid())
+  email        String   @unique
+  connected    Boolean  @default(true)
   accessToken  String
   refreshToken String
   tokenExpiry  DateTime
-  lastSynced   DateTime?
-  color        String    @default("#818cf8")
-  createdAt    DateTime  @default(now())
-  metrics      SiteMetric[]
-  pages        SitePage[]
-  keywords     SiteKeyword[]
-  countries    SiteCountry[]
+  createdAt    DateTime @default(now())
+  sites        Site[]
+}
+
+model Site {
+  id          String    @id @default(cuid())
+  accountId   String
+  url         String    @unique
+  propertyUrl String
+  displayName String?
+  active      Boolean   @default(true)
+  color       String    @default("#818cf8")
+  lastSynced  DateTime?
+  createdAt   DateTime  @default(now())
+  account     Account   @relation(fields: [accountId], references: [id], onDelete: Cascade)
+  metrics     SiteMetric[]
+  pages       SitePage[]
+  keywords    SiteKeyword[]
+  countries   SiteCountry[]
 }
 
 model SiteMetric {
