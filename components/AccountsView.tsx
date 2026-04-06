@@ -6,6 +6,7 @@ type Props = { accounts: Account[]; onRefresh: () => void; connectUrl: string }
 
 export default function AccountsView({ accounts, onRefresh, connectUrl }: Props) {
   const [busy, setBusy]           = useState<Record<string, boolean>>({})
+  const [refreshMsg, setRefreshMsg] = useState<Record<string, string>>({})
   const [confirming, setConfirming] = useState<string | null>(null)
   const [expanded, setExpanded]   = useState<Record<string, boolean>>({})
 
@@ -22,6 +23,24 @@ export default function AccountsView({ accounts, onRefresh, connectUrl }: Props)
     setConfirming(null)
     await onRefresh()
     setBusy(p => ({ ...p, [id]: false }))
+  }
+
+  async function refreshSites(accountId: string) {
+    setBusy(p => ({ ...p, [`refresh-${accountId}`]: true }))
+    setRefreshMsg(p => ({ ...p, [accountId]: '' }))
+    try {
+      const res = await fetch(`/api/accounts/${accountId}/refresh`, { method: 'POST' })
+      const data = await res.json()
+      if (data.added === 0) {
+        setRefreshMsg(p => ({ ...p, [accountId]: 'Inga nya sajter hittades' }))
+      } else {
+        setRefreshMsg(p => ({ ...p, [accountId]: `${data.added} ny${data.added > 1 ? 'a' : ''} sajt${data.added > 1 ? 'er' : ''} tillagd${data.added > 1 ? 'a' : ''} (inaktiva)` }))
+      }
+      await onRefresh()
+    } catch {
+      setRefreshMsg(p => ({ ...p, [accountId]: 'Fel vid hämtning' }))
+    }
+    setBusy(p => ({ ...p, [`refresh-${accountId}`]: false }))
   }
 
   async function toggleSite(siteId: string, active: boolean) {
@@ -84,6 +103,16 @@ export default function AccountsView({ accounts, onRefresh, connectUrl }: Props)
                     Remove
                   </button>
                 )}
+                {account.connected && (
+                  <button onClick={e => { e.stopPropagation(); refreshSites(account.id) }}
+                    disabled={!!busy[`refresh-${account.id}`]}
+                    style={{ padding: '5px 14px', fontSize: 12, borderRadius: 8, border: 'none', cursor: busy[`refresh-${account.id}`] ? 'not-allowed' : 'pointer', fontWeight: 500, transition: 'all 0.15s',
+                      background: busy[`refresh-${account.id}`] ? '#ede9fe' : '#6366f1',
+                      color: '#fff',
+                    }}>
+                    {busy[`refresh-${account.id}`] ? 'Laddar…' : 'Load websites'}
+                  </button>
+                )}
                 <button onClick={() => toggleConnect(account)} disabled={busy[account.id]}
                   style={{ padding: '5px 14px', fontSize: 12, borderRadius: 8, border: 'none', cursor: busy[account.id] ? 'not-allowed' : 'pointer', fontWeight: 500, transition: 'all 0.15s',
                     background: busy[account.id] ? '#f0eeeb' : account.connected ? '#fef2f2' : '#f0fdf4',
@@ -112,6 +141,13 @@ export default function AccountsView({ accounts, onRefresh, connectUrl }: Props)
             {!account.connected && (
               <div style={{ margin: '0 18px 12px', padding: '10px 14px', background: '#f8f7f5', borderRadius: 8, fontSize: 12, color: '#9ca3af' }}>
                 Disconnectat — data synkas inte. Klicka Connect för att aktivera igen.
+              </div>
+            )}
+
+            {/* Refresh message */}
+            {refreshMsg[account.id] && (
+              <div style={{ margin: '0 18px 8px', padding: '8px 14px', background: refreshMsg[account.id].includes('Fel') ? '#fef2f2' : '#f0fdf4', borderRadius: 8, fontSize: 12, color: refreshMsg[account.id].includes('Fel') ? '#ef4444' : '#059669' }}>
+                {refreshMsg[account.id]}
               </div>
             )}
 
