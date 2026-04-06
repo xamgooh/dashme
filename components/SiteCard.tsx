@@ -1,5 +1,4 @@
 'use client'
-
 import { useState } from 'react'
 import SparkLine from './charts/SparkLine'
 import { SiteWithData } from '@/lib/types'
@@ -10,149 +9,151 @@ function fmtN(n: number) {
   return String(n)
 }
 
-function posStyle(pos: number): React.CSSProperties {
-  if (pos <= 3)  return { background: 'rgba(52,211,153,0.12)',  color: '#34d399' }
-  if (pos <= 10) return { background: 'rgba(129,140,248,0.12)', color: '#818cf8' }
-  return { background: 'rgba(255,255,255,0.06)', color: '#50507a' }
+function posBadge(pos: number): React.CSSProperties {
+  if (pos <= 3)  return { background: '#f0fdf4', color: '#166534' }
+  if (pos <= 10) return { background: '#eff6ff', color: '#1e40af' }
+  return { background: '#f9fafb', color: '#6b7280' }
 }
 
-type Props = {
-  site: SiteWithData
-  onSync: (id: string) => void
-  onDelete: (id: string) => void
-  syncing: boolean
-}
+type Props = { site: SiteWithData; onSync: (id: string) => void; onDelete: (id: string) => void; syncing: boolean }
 
 export default function SiteCard({ site, onSync, onDelete, syncing }: Props) {
   const [expanded, setExpanded] = useState(false)
   const { totals } = site
-  const trendUp = totals.trend >= 0
-  const maxPageClicks = site.pages[0]?.clicks ?? 1
-
-  const trendingPages = site.pages
-    .filter(p => p.trendPct > 10)
-    .sort((a, b) => b.trendPct - a.trendPct)
-    .slice(0, 5)
+  const tUp = totals.trend >= 0
+  const maxP = site.pages[0]?.clicks ?? 1
+  const trending = site.pages.filter(p => p.trendPct > 10).sort((a, b) => b.trendPct - a.trendPct).slice(0, 4)
 
   return (
     <div
-      style={{ background: '#131318', border: '1px solid rgba(255,255,255,0.07)', borderRadius: 12, padding: '1.1rem 1.2rem', display: 'flex', flexDirection: 'column', position: 'relative', overflow: 'hidden', transition: 'border-color 0.15s' }}
-      onMouseEnter={e => ((e.currentTarget as HTMLDivElement).style.borderColor = 'rgba(255,255,255,0.14)')}
-      onMouseLeave={e => ((e.currentTarget as HTMLDivElement).style.borderColor = 'rgba(255,255,255,0.07)')}
+      style={{ background: '#fff', border: '0.5px solid rgba(0,0,0,0.08)', borderRadius: 12, overflow: 'hidden', transition: 'border-color 0.15s', display: 'flex', flexDirection: 'column' }}
+      onMouseEnter={e => ((e.currentTarget as HTMLDivElement).style.borderColor = 'rgba(0,0,0,0.16)')}
+      onMouseLeave={e => ((e.currentTarget as HTMLDivElement).style.borderColor = 'rgba(0,0,0,0.08)')}
     >
-      <div style={{ position: 'absolute', top: 0, left: 0, right: 0, height: 2, background: site.color, borderRadius: '12px 12px 0 0', opacity: 0.7 }} />
+      {/* Color top line */}
+      <div style={{ height: 3, background: site.color }} />
 
-      {/* Header */}
-      <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 12 }}>
-        <div>
-          <div style={{ fontSize: 13, fontWeight: 500, color: '#e8e8f4' }}>{site.displayName ?? site.url}</div>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 5, marginTop: 4 }}>
-            <span style={{ width: 6, height: 6, borderRadius: '50%', background: site.lastSynced ? '#34d399' : '#50507a', display: 'inline-block' }} />
-            <span style={{ fontSize: 11, color: '#50507a' }}>
-              {site.lastSynced ? `Synced ${new Date(site.lastSynced).toLocaleDateString('sv-SE')}` : 'Not synced'}
-            </span>
+      {/* Main content */}
+      <div style={{ padding: '12px 14px 0' }}>
+        <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 4 }}>
+          <div style={{ fontSize: 11, color: site.color, fontWeight: 500, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', flex: 1, minWidth: 0 }}>
+            {site.displayName ?? site.url}
           </div>
-        </div>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-          <span style={{ fontSize: 12, fontWeight: 500, color: trendUp ? '#34d399' : '#f87171' }}>
-            {trendUp ? '+' : ''}{totals.trend}%
-          </span>
           <button
             onClick={() => onSync(site.id)}
             disabled={syncing}
-            style={{ padding: '3px 8px', fontSize: 11, borderRadius: 6, border: '1px solid rgba(255,255,255,0.1)', background: 'transparent', color: syncing ? '#50507a' : '#7070a0', cursor: syncing ? 'not-allowed' : 'pointer' }}
+            style={{ fontSize: 10, padding: '1px 6px', borderRadius: 5, border: '0.5px solid rgba(0,0,0,0.1)', background: 'transparent', color: syncing ? '#d1d5db' : '#9ca3af', cursor: syncing ? 'not-allowed' : 'pointer', flexShrink: 0, marginLeft: 6 }}
           >
             {syncing ? '…' : 'Sync'}
           </button>
         </div>
+        <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between' }}>
+          <div style={{ fontSize: 26, fontWeight: 500, color: '#111', letterSpacing: '-0.5px', lineHeight: 1 }}>
+            {fmtN(totals.clicks)}
+          </div>
+          <div style={{ fontSize: 13, fontWeight: 500, color: tUp ? '#059669' : '#dc2626' }}>
+            {tUp ? '+' : ''}{totals.trend}%
+          </div>
+        </div>
+        <div style={{ fontSize: 10, color: '#9ca3af', marginTop: 1 }}>clicks · 28 days</div>
       </div>
 
-      {/* Stats */}
-      <div style={{ display: 'flex', gap: 6, marginBottom: 12 }}>
-        {[
-          { label: 'Clicks', value: fmtN(totals.clicks) },
-          { label: 'Impr',   value: fmtN(totals.impressions) },
-          { label: 'CTR',    value: `${totals.ctr}%` },
-          { label: 'Pos',    value: String(totals.position) },
-        ].map(({ label, value }) => (
-          <div key={label} style={{ background: '#1a1a22', borderRadius: 8, padding: '7px 10px', flex: 1 }}>
-            <div style={{ fontSize: 10, color: '#50507a', marginBottom: 3 }}>{label}</div>
-            <div style={{ fontSize: 14, fontWeight: 500, color: '#e8e8f4' }}>{value}</div>
+      {/* Sparkline */}
+      <div style={{ padding: '6px 8px 0' }}>
+        {site.metrics.length > 0
+          ? <SparkLine data={site.metrics} color={site.color} height={44} />
+          : <div style={{ height: 44, display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#d1d5db', fontSize: 10 }}>Sync för data</div>
+        }
+      </div>
+
+      {/* Stats row */}
+      <div style={{ padding: '8px 14px', display: 'flex', justifyContent: 'space-between' }}>
+        {[{ label: 'Impr', val: fmtN(totals.impressions) }, { label: 'CTR', val: `${totals.ctr}%` }, { label: 'Pos', val: String(totals.position) }].map(({ label, val }) => (
+          <div key={label}>
+            <div style={{ fontSize: 9, color: '#9ca3af', textTransform: 'uppercase', letterSpacing: '0.05em' }}>{label}</div>
+            <div style={{ fontSize: 12, fontWeight: 500, color: '#111' }}>{val}</div>
           </div>
         ))}
       </div>
 
-      {/* Sparkline */}
-      {site.metrics.length > 0
-        ? <div style={{ margin: '0 -4px' }}><SparkLine data={site.metrics} color={site.color} height={80} /></div>
-        : <div style={{ height: 80, display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#50507a', fontSize: 12 }}>Sync för att ladda data</div>
-      }
+      {/* Tags */}
+      {site.tags.length > 0 && (
+        <div style={{ padding: '0 14px 8px', display: 'flex', flexWrap: 'wrap', gap: 4 }}>
+          {site.tags.map(t => (
+            <span key={t.id} style={{ fontSize: 10, padding: '1px 7px', borderRadius: 10, background: t.color + '12', color: t.color, border: `0.5px solid ${t.color}40` }}>{t.name}</span>
+          ))}
+        </div>
+      )}
 
-      {/* More data toggle */}
-      <button
-        onClick={() => setExpanded(!expanded)}
-        style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6, width: '100%', padding: '7px', border: '1px solid rgba(255,255,255,0.08)', borderRadius: 8, background: 'transparent', cursor: 'pointer', fontSize: 12, color: '#7070a0', marginTop: 12, transition: 'all 0.15s' }}
-      >
-        <svg width="12" height="12" viewBox="0 0 12 12" fill="none" style={{ transform: expanded ? 'rotate(180deg)' : undefined, transition: 'transform 0.2s' }}>
-          <path d="M2 4l4 4 4-4" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" strokeLinejoin="round" />
-        </svg>
-        {expanded ? 'Less' : 'More data'}
-      </button>
+      {/* More data button */}
+      <div style={{ padding: '0 14px 12px', marginTop: 'auto' }}>
+        <button
+          onClick={() => setExpanded(!expanded)}
+          style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 4, width: '100%', padding: '5px', border: '0.5px solid rgba(0,0,0,0.08)', borderRadius: 7, background: 'transparent', cursor: 'pointer', fontSize: 11, color: '#9ca3af', transition: 'all 0.15s' }}
+        >
+          <svg width="10" height="10" viewBox="0 0 10 10" fill="none" style={{ transform: expanded ? 'rotate(180deg)' : undefined, transition: 'transform 0.2s' }}>
+            <path d="M2 3.5l3 3 3-3" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" strokeLinejoin="round" />
+          </svg>
+          {expanded ? 'Less' : 'More data'}
+        </button>
+      </div>
 
-      {/* Expanded section */}
+      {/* Expanded */}
       {expanded && (
-        <div style={{ marginTop: 12, paddingTop: 12, borderTop: '1px solid rgba(255,255,255,0.07)' }}>
-
-          {/* Top pages */}
-          <div style={{ fontSize: 10, letterSpacing: '0.08em', textTransform: 'uppercase', color: '#50507a', fontWeight: 500, marginBottom: 8 }}>Top pages</div>
-          {site.pages.slice(0, 5).map(p => {
-            const pct = Math.round((p.clicks / maxPageClicks) * 100)
-            const short = p.pageUrl.length > 38 ? p.pageUrl.slice(0, 38) + '…' : p.pageUrl
-            return (
-              <div key={p.pageUrl} style={{ marginBottom: 10 }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 11, marginBottom: 4 }}>
-                  <span style={{ color: '#7070a0', fontFamily: 'var(--font-mono)' }}>{short}</span>
-                  <span style={{ color: '#c8c8e0', fontWeight: 500 }}>{fmtN(p.clicks)}</span>
-                </div>
-                <div style={{ height: 2, background: 'rgba(255,255,255,0.06)', borderRadius: 2 }}>
-                  <div style={{ height: 2, width: `${pct}%`, background: site.color, borderRadius: 2, opacity: 0.7 }} />
-                </div>
-              </div>
-            )
-          })}
+        <div style={{ borderTop: '0.5px solid rgba(0,0,0,0.06)', padding: '12px 14px 14px' }}>
 
           {/* Trending pages */}
-          {trendingPages.length > 0 && (
-            <>
-              <div style={{ fontSize: 10, letterSpacing: '0.08em', textTransform: 'uppercase', color: '#50507a', fontWeight: 500, marginBottom: 8, marginTop: 14 }}>Trending pages</div>
-              {trendingPages.map(p => {
-                const short = p.pageUrl.length > 32 ? p.pageUrl.slice(0, 32) + '…' : p.pageUrl
-                return (
-                  <div key={p.pageUrl} style={{ display: 'flex', alignItems: 'center', gap: 7, padding: '5px 0', borderBottom: '1px solid rgba(255,255,255,0.05)' }}>
-                    <span style={{ fontSize: 11, fontWeight: 600, color: '#34d399', minWidth: 40 }}>+{Math.round(p.trendPct)}%</span>
-                    <span style={{ flex: 1, fontSize: 11, color: '#c8c8e0', fontFamily: 'var(--font-mono)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{short}</span>
-                    <span style={{ fontSize: 11, color: '#50507a' }}>{fmtN(p.clicks)}</span>
-                  </div>
-                )
-              })}
-            </>
+          {trending.length > 0 && (
+            <div style={{ marginBottom: 12 }}>
+              <div style={{ fontSize: 9, letterSpacing: '0.08em', textTransform: 'uppercase', color: '#9ca3af', fontWeight: 500, marginBottom: 6 }}>Trending pages</div>
+              {trending.map(p => (
+                <div key={p.pageUrl} style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '3px 0', borderBottom: '0.5px solid rgba(0,0,0,0.05)' }}>
+                  <span style={{ fontSize: 11, fontWeight: 600, color: '#059669', minWidth: 36, flexShrink: 0 }}>+{Math.round(p.trendPct)}%</span>
+                  <span style={{ fontSize: 10, color: '#374151', flex: 1, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', fontFamily: 'var(--font-mono)' }}>
+                    {p.pageUrl.length > 32 ? p.pageUrl.slice(0, 32) + '…' : p.pageUrl}
+                  </span>
+                  <span style={{ fontSize: 10, color: '#9ca3af', flexShrink: 0 }}>{fmtN(p.clicks)}</span>
+                </div>
+              ))}
+            </div>
           )}
 
           {/* Keywords */}
-          <div style={{ fontSize: 10, letterSpacing: '0.08em', textTransform: 'uppercase', color: '#50507a', fontWeight: 500, marginBottom: 8, marginTop: 14 }}>Keywords</div>
-          {site.keywords.slice(0, 7).map(k => (
-            <div key={k.keyword} style={{ display: 'flex', alignItems: 'center', gap: 7, padding: '5px 0', borderBottom: '1px solid rgba(255,255,255,0.05)' }}>
-              <span style={{ display: 'inline-block', minWidth: 28, textAlign: 'center', padding: '2px 5px', borderRadius: 5, fontSize: 10, fontWeight: 600, ...posStyle(k.position) }}>
-                #{Math.round(k.position)}
-              </span>
-              <span style={{ flex: 1, fontSize: 12, color: '#c8c8e0', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{k.keyword}</span>
-              <span style={{ fontSize: 11, color: '#50507a' }}>{fmtN(k.clicks)}</span>
-            </div>
-          ))}
+          <div style={{ marginBottom: 12 }}>
+            <div style={{ fontSize: 9, letterSpacing: '0.08em', textTransform: 'uppercase', color: '#9ca3af', fontWeight: 500, marginBottom: 6 }}>Keywords</div>
+            {site.keywords.slice(0, 6).map(k => (
+              <div key={k.keyword} style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '3px 0', borderBottom: '0.5px solid rgba(0,0,0,0.05)' }}>
+                <span style={{ fontSize: 10, padding: '1px 5px', borderRadius: 4, fontWeight: 500, flexShrink: 0, ...posBadge(k.position) }}>#{Math.round(k.position)}</span>
+                <span style={{ fontSize: 11, color: '#374151', flex: 1, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{k.keyword}</span>
+                <span style={{ fontSize: 10, color: '#9ca3af', flexShrink: 0 }}>{fmtN(k.clicks)}</span>
+              </div>
+            ))}
+          </div>
+
+          {/* Top pages */}
+          <div>
+            <div style={{ fontSize: 9, letterSpacing: '0.08em', textTransform: 'uppercase', color: '#9ca3af', fontWeight: 500, marginBottom: 6 }}>Top pages</div>
+            {site.pages.slice(0, 5).map(p => {
+              const pct = Math.round((p.clicks / maxP) * 100)
+              return (
+                <div key={p.pageUrl} style={{ marginBottom: 8 }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 10, marginBottom: 3 }}>
+                    <span style={{ color: '#6b7280', fontFamily: 'var(--font-mono)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', flex: 1 }}>
+                      {p.pageUrl.length > 32 ? p.pageUrl.slice(0, 32) + '…' : p.pageUrl}
+                    </span>
+                    <span style={{ color: '#374151', fontWeight: 500, flexShrink: 0, marginLeft: 8 }}>{fmtN(p.clicks)}</span>
+                  </div>
+                  <div style={{ height: 2, background: 'rgba(0,0,0,0.06)', borderRadius: 2 }}>
+                    <div style={{ height: 2, width: `${pct}%`, background: site.color, borderRadius: 2, opacity: 0.6 }} />
+                  </div>
+                </div>
+              )
+            })}
+          </div>
 
           <button
             onClick={() => { if (confirm(`Ta bort ${site.displayName ?? site.url}?`)) onDelete(site.id) }}
-            style={{ marginTop: 14, fontSize: 11, color: '#f87171', background: 'transparent', border: 'none', cursor: 'pointer', padding: 0 }}
+            style={{ marginTop: 12, fontSize: 10, color: '#ef4444', background: 'transparent', border: 'none', cursor: 'pointer', padding: 0 }}
           >
             Ta bort sajt
           </button>

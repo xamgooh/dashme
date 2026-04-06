@@ -16,18 +16,16 @@ function fmtN(n: number) {
 }
 
 type View = 'overview' | 'sites' | 'countries' | 'pages' | 'accounts' | 'tags'
-const PALETTE = ['#818cf8','#34d399','#f472b6','#fb923c','#38bdf8','#a78bfa','#4ade80','#fbbf24']
+const PALETTE = ['#6366f1','#10b981','#ec4899','#3b82f6','#f59e0b','#8b5cf6','#ef4444','#06b6d4']
 
-const st: Record<string, React.CSSProperties> = {
-  wrap:      { background: '#0b0b0f', minHeight: '100vh', padding: '1.75rem 2rem', fontFamily: 'var(--font-sans, system-ui)' },
-  label:     { fontSize: 11, letterSpacing: '0.12em', color: '#50507a', textTransform: 'uppercase' as const, marginBottom: 5 },
-  title:     { fontSize: 24, fontWeight: 500, color: '#e8e8f4', letterSpacing: '-0.3px' },
-  kpi:       { background: '#131318', border: '1px solid rgba(255,255,255,0.07)', borderRadius: 10, padding: '1rem 1.25rem' },
-  kpiLabel:  { fontSize: 11, color: '#50507a', marginBottom: 10, textTransform: 'uppercase' as const, letterSpacing: '0.06em' },
-  kpiVal:    { fontSize: 32, fontWeight: 500, color: '#e8e8f4', lineHeight: 1, letterSpacing: '-0.5px' },
-  card:      { background: '#131318', border: '1px solid rgba(255,255,255,0.07)', borderRadius: 12, padding: '1.25rem' },
-  cardTitle: { fontSize: 13, fontWeight: 500, marginBottom: '1rem', color: '#e8e8f4' },
-  tabBtn:    { padding: '6px 16px', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 8, background: 'transparent', cursor: 'pointer', fontSize: 13, color: '#7070a0', transition: 'all 0.15s' },
+const s: Record<string, React.CSSProperties> = {
+  wrap:     { background: '#f8f7f5', minHeight: '100vh', padding: '20px 24px', fontFamily: 'var(--font-sans, system-ui)' },
+  tabBtn:   { padding: '5px 14px', borderRadius: 20, border: '0.5px solid rgba(0,0,0,0.1)', background: 'transparent', cursor: 'pointer', fontSize: 12, color: '#6b7280', transition: 'all 0.15s' },
+  card:     { background: '#fff', border: '0.5px solid rgba(0,0,0,0.08)', borderRadius: 12, padding: '16px' },
+  kpi:      { background: '#fff', border: '0.5px solid rgba(0,0,0,0.08)', borderRadius: 10, padding: '14px 16px' },
+  kpiLbl:   { fontSize: 10, color: '#9ca3af', textTransform: 'uppercase' as const, letterSpacing: '0.06em', marginBottom: 8 },
+  kpiVal:   { fontSize: 28, fontWeight: 500, color: '#111', letterSpacing: '-0.5px', lineHeight: 1 },
+  secLbl:   { fontSize: 12, fontWeight: 500, color: '#111', marginBottom: '0.75rem' },
 }
 
 export default function Dashboard() {
@@ -40,59 +38,30 @@ export default function Dashboard() {
   const [error, setError]           = useState<string | null>(null)
   const [syncing, setSyncing]       = useState<Record<string, boolean>>({})
   const [syncingAll, setSyncingAll] = useState(false)
-  const [activeTag, setActiveTag]   = useState<string | null>(null) // null = All
+  const [activeTag, setActiveTag]   = useState<string | null>(null)
 
   const loadData = useCallback(async () => {
     try {
-      const [sr, or, ar, tr] = await Promise.all([
-        fetch('/api/sites'),
-        fetch('/api/overview'),
-        fetch('/api/accounts'),
-        fetch('/api/tags'),
-      ])
+      const [sr, or, ar, tr] = await Promise.all([fetch('/api/sites'), fetch('/api/overview'), fetch('/api/accounts'), fetch('/api/tags')])
       if (!sr.ok || !or.ok || !ar.ok || !tr.ok) throw new Error('API error')
       const [sj, oj, aj, tj] = await Promise.all([sr.json(), or.json(), ar.json(), tr.json()])
-      setAllSites(sj)
-      setOverview(oj)
-      setAccounts(aj)
-      setTags(tj)
-    } catch (e: any) {
-      setError(e.message ?? 'Okänt fel')
-    } finally {
-      setLoading(false)
-    }
+      setAllSites(sj); setOverview(oj); setAccounts(aj); setTags(tj)
+    } catch (e: any) { setError(e.message ?? 'Fel') }
+    finally { setLoading(false) }
   }, [])
 
   useEffect(() => { loadData() }, [loadData])
 
-  // Filter sites by active tag
-  const sites = useMemo(() => {
-    if (!activeTag) return allSites
-    return allSites.filter(s => s.tags.some(t => t.id === activeTag))
-  }, [allSites, activeTag])
+  const sites = useMemo(() => !activeTag ? allSites : allSites.filter(s => s.tags.some(t => t.id === activeTag)), [allSites, activeTag])
 
-  // Recompute overview totals when tag filter changes
-  const filteredOverview = useMemo(() => {
-    if (!activeTag || !overviewData) return overviewData
-    // Sum up from filtered sites' metrics
-    const byDate: Record<string, { clicks: number; impressions: number; count: number }> = {}
-    sites.forEach(site => {
-      site.metrics.forEach(m => {
-        if (!byDate[m.date]) byDate[m.date] = { clicks: 0, impressions: 0, count: 0 }
-        byDate[m.date].clicks += m.clicks
-        byDate[m.date].impressions += m.impressions
-        byDate[m.date].count++
-      })
-    })
-    const daily = Object.entries(byDate).sort(([a],[b]) => a.localeCompare(b)).map(([date, v]) => ({
-      date, clicks: v.clicks, impressions: v.impressions, ctr: 0, position: 0,
+  const filteredDaily = useMemo(() => {
+    if (!activeTag || !overviewData) return overviewData?.daily ?? []
+    const byDate: Record<string, { clicks: number; impressions: number }> = {}
+    sites.forEach(site => site.metrics.forEach(m => {
+      if (!byDate[m.date]) byDate[m.date] = { clicks: 0, impressions: 0 }
+      byDate[m.date].clicks += m.clicks; byDate[m.date].impressions += m.impressions
     }))
-    const tc = daily.reduce((s,d) => s+d.clicks, 0)
-    const ti = daily.reduce((s,d) => s+d.impressions, 0)
-    const half = Math.floor(daily.length/2)
-    const prev = daily.slice(0,half).reduce((s,d) => s+d.clicks, 0)
-    const curr = daily.slice(half).reduce((s,d) => s+d.clicks, 0)
-    return { daily, totals: { clicks: tc, impressions: ti, ctr: 0, position: 0, trend: prev > 0 ? Number(((curr-prev)/prev*100).toFixed(1)) : 0 } }
+    return Object.entries(byDate).sort(([a],[b]) => a.localeCompare(b)).map(([date, v]) => ({ date, ...v, ctr: 0, position: 0 }))
   }, [activeTag, overviewData, sites])
 
   async function handleSync(id: string) {
@@ -104,7 +73,7 @@ export default function Dashboard() {
 
   async function handleSyncAll() {
     setSyncingAll(true)
-    await Promise.all(sites.map(s => fetch(`/api/sites/${s.id}/sync`, { method: 'POST' })))
+    await Promise.all(sites.map(site => fetch(`/api/sites/${site.id}/sync`, { method: 'POST' })))
     await loadData()
     setSyncingAll(false)
   }
@@ -114,9 +83,9 @@ export default function Dashboard() {
     await loadData()
   }
 
-  const totals  = filteredOverview?.totals
-  const daily   = filteredOverview?.daily ?? []
-  const trendUp = (totals?.trend ?? 0) >= 0
+  const totals   = overviewData?.totals
+  const daily    = filteredDaily
+  const trendUp  = (totals?.trend ?? 0) >= 0
   const connectUrl = `/api/auth/google?secret=${process.env.NEXT_PUBLIC_DASHBOARD_SECRET ?? ''}`
 
   const navTabs: { key: View; label: string }[] = [
@@ -128,47 +97,47 @@ export default function Dashboard() {
     { key: 'tags',      label: `Tags${tags.length ? ` (${tags.length})` : ''}` },
   ]
 
-  if (loading) return <div style={{ ...st.wrap, display: 'flex', alignItems: 'center', justifyContent: 'center' }}><div style={{ color: '#50507a', fontSize: 13 }}>Laddar...</div></div>
+  if (loading) return <div style={{ ...s.wrap, display: 'flex', alignItems: 'center', justifyContent: 'center' }}><div style={{ color: '#9ca3af', fontSize: 13 }}>Laddar...</div></div>
 
   if (error) return (
-    <div style={{ ...st.wrap, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 12 }}>
-      <div style={{ color: '#f87171', fontSize: 14 }}>Fel vid laddning</div>
-      <div style={{ color: '#50507a', fontSize: 12, fontFamily: 'monospace', background: '#131318', padding: '8px 16px', borderRadius: 8 }}>{error}</div>
-      <button onClick={loadData} style={{ padding: '6px 16px', borderRadius: 8, border: '1px solid rgba(255,255,255,0.1)', background: 'transparent', color: '#7070a0', cursor: 'pointer', fontSize: 13 }}>Försök igen</button>
+    <div style={{ ...s.wrap, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 12 }}>
+      <div style={{ color: '#ef4444', fontSize: 14 }}>Fel vid laddning</div>
+      <div style={{ color: '#9ca3af', fontSize: 12, fontFamily: 'monospace', background: '#fff', padding: '8px 16px', borderRadius: 8, border: '0.5px solid rgba(0,0,0,0.08)' }}>{error}</div>
+      <button onClick={loadData} style={{ padding: '6px 16px', borderRadius: 8, border: '0.5px solid rgba(0,0,0,0.1)', background: 'transparent', color: '#6b7280', cursor: 'pointer', fontSize: 13 }}>Försök igen</button>
     </div>
   )
 
   return (
-    <div style={st.wrap}>
+    <div style={s.wrap}>
       {/* Header */}
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', paddingBottom: '1.25rem', borderBottom: '1px solid rgba(255,255,255,0.07)', marginBottom: '1rem', flexWrap: 'wrap', gap: 12 }}>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14, flexWrap: 'wrap', gap: 10 }}>
         <div>
-          <div style={st.label}>iCyber AB</div>
-          <div style={st.title}>Dashme</div>
+          <div style={{ fontSize: 10, letterSpacing: '0.1em', textTransform: 'uppercase', color: '#9ca3af', marginBottom: 3 }}>iCyber AB</div>
+          <div style={{ fontSize: 20, fontWeight: 500, color: '#111', letterSpacing: '-0.3px' }}>Dashme</div>
         </div>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
-          <span style={{ fontSize: 12, color: '#50507a', padding: '6px 12px', border: '1px solid rgba(255,255,255,0.08)', borderRadius: 8 }}>Last 28 days</span>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
+          <span style={{ fontSize: 11, color: '#9ca3af', padding: '4px 10px', border: '0.5px solid rgba(0,0,0,0.08)', borderRadius: 20 }}>Last 28 days</span>
           {navTabs.map(t => (
-            <button key={t.key} onClick={() => setView(t.key)} style={{ ...st.tabBtn, ...(view === t.key ? { background: 'rgba(255,255,255,0.08)', color: '#e8e8f4', borderColor: 'rgba(255,255,255,0.18)', fontWeight: 500 } : {}) }}>
+            <button key={t.key} onClick={() => setView(t.key)} style={{ ...s.tabBtn, ...(view === t.key ? { background: '#111', color: '#fff', borderColor: '#111' } : {}) }}>
               {t.label}
             </button>
           ))}
-          <button onClick={handleSyncAll} disabled={syncingAll} style={{ ...st.tabBtn, color: syncingAll ? '#50507a' : '#818cf8', borderColor: 'rgba(129,140,248,0.3)' }}>
+          <button onClick={handleSyncAll} disabled={syncingAll} style={{ ...s.tabBtn, color: syncingAll ? '#d1d5db' : '#6366f1', borderColor: 'rgba(99,102,241,0.3)' }}>
             {syncingAll ? 'Syncing…' : 'Sync all'}
           </button>
-          <button onClick={async () => { await fetch('/api/logout', { method: 'POST' }); window.location.href = '/login' }} style={{ ...st.tabBtn, color: '#50507a' }}>
+          <button onClick={async () => { await fetch('/api/logout', { method: 'POST' }); window.location.href = '/login' }} style={{ ...s.tabBtn, color: '#9ca3af' }}>
             Logga ut
           </button>
         </div>
       </div>
 
-      {/* Tag filter bar — only on data views */}
+      {/* Tag filter bar */}
       {['overview','sites','countries','pages'].includes(view) && tags.length > 0 && (
-        <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: '1.5rem', flexWrap: 'wrap' }}>
-          <span style={{ fontSize: 11, color: '#50507a', marginRight: 4 }}>Filter:</span>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 14, flexWrap: 'wrap' }}>
+          <span style={{ fontSize: 10, color: '#9ca3af', marginRight: 2 }}>Filter:</span>
           <button
             onClick={() => setActiveTag(null)}
-            style={{ padding: '4px 12px', borderRadius: 20, border: `1px solid ${!activeTag ? 'rgba(255,255,255,0.3)' : 'rgba(255,255,255,0.08)'}`, background: !activeTag ? 'rgba(255,255,255,0.08)' : 'transparent', color: !activeTag ? '#e8e8f4' : '#7070a0', fontSize: 12, cursor: 'pointer', transition: 'all 0.15s' }}
+            style={{ padding: '3px 10px', borderRadius: 20, border: `0.5px solid ${!activeTag ? 'rgba(0,0,0,0.2)' : 'rgba(0,0,0,0.08)'}`, background: !activeTag ? '#111' : 'transparent', color: !activeTag ? '#fff' : '#6b7280', fontSize: 11, cursor: 'pointer' }}
           >
             All ({allSites.length})
           </button>
@@ -176,12 +145,9 @@ export default function Dashboard() {
             const isActive = activeTag === tag.id
             const count = allSites.filter(s => s.tags.some(t => t.id === tag.id)).length
             return (
-              <button
-                key={tag.id}
-                onClick={() => setActiveTag(isActive ? null : tag.id)}
-                style={{ padding: '4px 12px', borderRadius: 20, border: `1px solid ${isActive ? tag.color + '80' : 'rgba(255,255,255,0.08)'}`, background: isActive ? tag.color + '18' : 'transparent', color: isActive ? tag.color : '#7070a0', fontSize: 12, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 6, transition: 'all 0.15s' }}
-              >
-                <span style={{ width: 7, height: 7, borderRadius: 2, background: tag.color, display: 'inline-block' }} />
+              <button key={tag.id} onClick={() => setActiveTag(isActive ? null : tag.id)}
+                style={{ padding: '3px 10px', borderRadius: 20, border: `0.5px solid ${isActive ? tag.color + '60' : 'rgba(0,0,0,0.08)'}`, background: isActive ? tag.color + '12' : 'transparent', color: isActive ? tag.color : '#6b7280', fontSize: 11, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 5 }}>
+                <span style={{ width: 6, height: 6, borderRadius: 1, background: tag.color, display: 'inline-block' }} />
                 {tag.name} ({count})
               </button>
             )
@@ -192,68 +158,67 @@ export default function Dashboard() {
       {/* OVERVIEW */}
       {view === 'overview' && (
         <>
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, minmax(0,1fr))', gap: 12, marginBottom: '1.5rem' }}>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, minmax(0,1fr))', gap: 10, marginBottom: 14 }}>
             {[
               { label: 'Total Clicks',  val: fmtN(totals?.clicks ?? 0) },
               { label: 'Impressions',   val: fmtN(totals?.impressions ?? 0) },
               { label: 'Avg. CTR',      val: `${totals?.ctr ?? 0}%` },
               { label: 'Avg. Position', val: String(totals?.position ?? 0) },
             ].map(({ label, val }) => (
-              <div key={label} style={st.kpi}>
-                <div style={st.kpiLabel}>{label}</div>
-                <div style={st.kpiVal}>{val}</div>
-                <div style={{ fontSize: 12, color: trendUp ? '#34d399' : '#f87171', marginTop: 8 }}>
+              <div key={label} style={s.kpi}>
+                <div style={s.kpiLbl}>{label}</div>
+                <div style={s.kpiVal}>{val}</div>
+                <div style={{ fontSize: 11, color: trendUp ? '#059669' : '#dc2626', marginTop: 6 }}>
                   {trendUp ? '+' : ''}{totals?.trend ?? 0}% vs prev period
-                  {activeTag && <span style={{ color: '#50507a', marginLeft: 6 }}>· {tags.find(t=>t.id===activeTag)?.name}</span>}
                 </div>
               </div>
             ))}
           </div>
-          <div style={{ ...st.card, marginBottom: '1.5rem' }}>
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '1rem' }}>
-              <div style={st.cardTitle}>Clicks & Impressions — 28 days</div>
-              <div style={{ display: 'flex', gap: 16, fontSize: 12, color: '#7070a0' }}>
-                <span style={{ display: 'flex', alignItems: 'center', gap: 5 }}><span style={{ width: 10, height: 3, borderRadius: 2, background: '#818cf8', display: 'inline-block' }} />Clicks</span>
-                <span style={{ display: 'flex', alignItems: 'center', gap: 5 }}><span style={{ width: 10, height: 3, borderRadius: 2, background: '#34d399', display: 'inline-block' }} />Impressions ÷100</span>
+          <div style={{ ...s.card, marginBottom: 14 }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
+              <div style={s.secLbl}>Clicks & Impressions — 28 days</div>
+              <div style={{ display: 'flex', gap: 14, fontSize: 11, color: '#9ca3af' }}>
+                <span style={{ display: 'flex', alignItems: 'center', gap: 4 }}><span style={{ width: 8, height: 2, borderRadius: 2, background: '#6366f1', display: 'inline-block' }} />Clicks</span>
+                <span style={{ display: 'flex', alignItems: 'center', gap: 4 }}><span style={{ width: 8, height: 2, borderRadius: 2, background: '#10b981', display: 'inline-block' }} />Impressions ÷100</span>
               </div>
             </div>
-            <div style={{ position: 'relative', height: 260 }}>
-              {daily.length > 0 ? <MainChart data={daily} /> : <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%', color: '#50507a', fontSize: 13 }}>Synca sajter för att se data</div>}
+            <div style={{ position: 'relative', height: 200 }}>
+              {daily.length > 0 ? <MainChart data={daily} /> : <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%', color: '#d1d5db', fontSize: 13 }}>Synca sajter för att se data</div>}
             </div>
           </div>
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
-            <div style={st.card}>
-              <div style={st.cardTitle}>Top sites{activeTag && ` · ${tags.find(t=>t.id===activeTag)?.name}`}</div>
-              {sites.length === 0 && <div style={{ fontSize: 13, color: '#50507a' }}>Inga sajter</div>}
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
+            <div style={s.card}>
+              <div style={s.secLbl}>Top sites</div>
               {sites.map(site => {
-                const maxC = sites[0]?.totals.clicks || 1
+                const pct = Math.round((site.totals.clicks / (sites[0]?.totals.clicks || 1)) * 100)
                 return (
-                  <div key={site.id} style={{ marginBottom: 14 }}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 13, marginBottom: 6, alignItems: 'center' }}>
-                      <span style={{ color: '#c8c8e0', fontWeight: 500 }}>{site.displayName ?? site.url}</span>
-                      <span style={{ color: '#7070a0' }}>{fmtN(site.totals.clicks)} clicks</span>
+                  <div key={site.id} style={{ marginBottom: 12 }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12, marginBottom: 4 }}>
+                      <span style={{ color: '#111', fontWeight: 500 }}>{site.displayName ?? site.url}</span>
+                      <span style={{ color: '#9ca3af' }}>{fmtN(site.totals.clicks)}</span>
                     </div>
-                    <div style={{ height: 2, background: 'rgba(255,255,255,0.06)', borderRadius: 2 }}>
-                      <div style={{ height: 2, width: `${Math.round((site.totals.clicks / maxC) * 100)}%`, background: site.color, borderRadius: 2 }} />
+                    <div style={{ height: 2, background: 'rgba(0,0,0,0.06)', borderRadius: 2 }}>
+                      <div style={{ height: 2, width: `${pct}%`, background: site.color, borderRadius: 2 }} />
                     </div>
                   </div>
                 )
               })}
+              {sites.length === 0 && <div style={{ fontSize: 12, color: '#d1d5db' }}>Inga sajter</div>}
             </div>
-            <div style={st.card}>
-              <div style={st.cardTitle}>Top countries</div>
+            <div style={s.card}>
+              <div style={s.secLbl}>Top countries</div>
               {(() => {
                 const merged: Record<string, number> = {}
                 sites.flatMap(s => s.countries).forEach(c => { merged[c.country] = (merged[c.country] ?? 0) + c.clicks })
                 const sorted = Object.entries(merged).sort(([,a],[,b]) => b - a).slice(0, 7)
                 const maxC = sorted[0]?.[1] ?? 1
                 return sorted.map(([country, clicks], i) => (
-                  <div key={country} style={{ marginBottom: 14 }}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 13, marginBottom: 6 }}>
-                      <span style={{ color: '#c8c8e0', fontWeight: 500 }}>{country}</span>
-                      <span style={{ color: '#7070a0' }}>{fmtN(clicks)}</span>
+                  <div key={country} style={{ marginBottom: 12 }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12, marginBottom: 4 }}>
+                      <span style={{ color: '#111', fontWeight: 500 }}>{country}</span>
+                      <span style={{ color: '#9ca3af' }}>{fmtN(clicks)}</span>
                     </div>
-                    <div style={{ height: 2, background: 'rgba(255,255,255,0.06)', borderRadius: 2 }}>
+                    <div style={{ height: 2, background: 'rgba(0,0,0,0.06)', borderRadius: 2 }}>
                       <div style={{ height: 2, width: `${Math.round((clicks/maxC)*100)}%`, background: PALETTE[i % PALETTE.length], borderRadius: 2 }} />
                     </div>
                   </div>
@@ -264,80 +229,108 @@ export default function Dashboard() {
         </>
       )}
 
-      {/* SITES */}
+      {/* SITES — 10 columns */}
       {view === 'sites' && (
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, minmax(0,1fr))', gap: 14 }}>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(10, minmax(0,1fr))', gap: 8 }}>
           {sites.map(site => (
             <SiteCard key={site.id} site={site} onSync={handleSync} onDelete={handleDelete} syncing={!!syncing[site.id]} />
           ))}
           {sites.length === 0 && (
-            <div style={{ gridColumn: '1/-1', textAlign: 'center', padding: '3rem', color: '#50507a', fontSize: 13 }}>
-              {activeTag ? `Inga sajter med taggen "${tags.find(t=>t.id===activeTag)?.name}"` : 'Inga aktiva sajter — gå till Accounts'}
+            <div style={{ gridColumn: '1/-1', textAlign: 'center', padding: '3rem', color: '#d1d5db', fontSize: 13 }}>
+              {activeTag ? `Inga sajter med den taggen` : 'Inga aktiva sajter — gå till Accounts'}
             </div>
           )}
+          <a href={connectUrl} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 6, background: 'transparent', border: '0.5px dashed rgba(0,0,0,0.12)', borderRadius: 12, textDecoration: 'none', color: '#9ca3af', fontSize: 11, minHeight: 180, cursor: 'pointer' }}>
+            <svg width="14" height="14" viewBox="0 0 14 14" fill="none"><path d="M7 2v10M2 7h10" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" /></svg>
+            Connect
+          </a>
         </div>
       )}
 
       {/* COUNTRIES */}
       {view === 'countries' && (
-        <div style={st.card}>
-          <div style={st.cardTitle}>Alla länder{activeTag && ` · ${tags.find(t=>t.id===activeTag)?.name}`}</div>
-          <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
-            <thead><tr style={{ borderBottom: '1px solid rgba(255,255,255,0.07)' }}>
-              {['Country','Clicks','Impressions','CTR','Pos'].map((h, i) => (
-                <th key={h} style={{ textAlign: i === 0 ? 'left' : 'right', padding: '8px 0', fontWeight: 500, color: '#50507a' }}>{h}</th>
-              ))}
-            </tr></thead>
-            <tbody>
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
+          <div style={s.card}>
+            <div style={s.secLbl}>Countries</div>
+            <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12 }}>
+              <thead><tr style={{ borderBottom: '0.5px solid rgba(0,0,0,0.08)' }}>
+                {['Country','Clicks','Impressions','CTR','Pos'].map((h,i) => (
+                  <th key={h} style={{ textAlign: i===0?'left':'right', padding: '6px 0', fontWeight: 500, color: '#9ca3af', fontSize: 11 }}>{h}</th>
+                ))}
+              </tr></thead>
+              <tbody>
+                {(() => {
+                  const merged: Record<string,{clicks:number;impressions:number;ctr:number[];pos:number[]}> = {}
+                  sites.flatMap(s => s.countries).forEach(c => {
+                    if (!merged[c.country]) merged[c.country] = {clicks:0,impressions:0,ctr:[],pos:[]}
+                    merged[c.country].clicks += c.clicks; merged[c.country].impressions += c.impressions
+                    merged[c.country].ctr.push(c.ctr); merged[c.country].pos.push(c.position)
+                  })
+                  return Object.entries(merged).sort(([,a],[,b]) => b.clicks-a.clicks).map(([country,v]) => (
+                    <tr key={country} style={{ borderBottom: '0.5px solid rgba(0,0,0,0.05)' }}>
+                      <td style={{ padding: '8px 0', color: '#111' }}>{country}</td>
+                      <td style={{ textAlign: 'right', padding: '8px 0', fontWeight: 500, color: '#111' }}>{fmtN(v.clicks)}</td>
+                      <td style={{ textAlign: 'right', padding: '8px 0', color: '#6b7280' }}>{fmtN(v.impressions)}</td>
+                      <td style={{ textAlign: 'right', padding: '8px 0', color: '#6b7280' }}>{(v.ctr.reduce((a,b)=>a+b,0)/v.ctr.length).toFixed(1)}%</td>
+                      <td style={{ textAlign: 'right', padding: '8px 0', color: '#6b7280' }}>{(v.pos.reduce((a,b)=>a+b,0)/v.pos.length).toFixed(1)}</td>
+                    </tr>
+                  ))
+                })()}
+              </tbody>
+            </table>
+          </div>
+          <div style={s.card}>
+            <div style={s.secLbl}>Distribution</div>
+            <div style={{ fontSize: 12, color: '#9ca3af' }}>
               {(() => {
-                const merged: Record<string, { clicks: number; impressions: number; ctr: number[]; pos: number[] }> = {}
-                sites.flatMap(s => s.countries).forEach(c => {
-                  if (!merged[c.country]) merged[c.country] = { clicks: 0, impressions: 0, ctr: [], pos: [] }
-                  merged[c.country].clicks += c.clicks; merged[c.country].impressions += c.impressions
-                  merged[c.country].ctr.push(c.ctr); merged[c.country].pos.push(c.position)
-                })
-                return Object.entries(merged).sort(([,a],[,b]) => b.clicks - a.clicks).map(([country, v]) => (
-                  <tr key={country} style={{ borderBottom: '1px solid rgba(255,255,255,0.05)' }}>
-                    <td style={{ padding: '10px 0', color: '#c8c8e0' }}>{country}</td>
-                    <td style={{ textAlign: 'right', padding: '10px 0', fontWeight: 500, color: '#e8e8f4' }}>{fmtN(v.clicks)}</td>
-                    <td style={{ textAlign: 'right', padding: '10px 0', color: '#7070a0' }}>{fmtN(v.impressions)}</td>
-                    <td style={{ textAlign: 'right', padding: '10px 0', color: '#7070a0' }}>{(v.ctr.reduce((a,b)=>a+b,0)/v.ctr.length).toFixed(1)}%</td>
-                    <td style={{ textAlign: 'right', padding: '10px 0', color: '#7070a0' }}>{(v.pos.reduce((a,b)=>a+b,0)/v.pos.length).toFixed(1)}</td>
-                  </tr>
+                const merged: Record<string,number> = {}
+                sites.flatMap(s => s.countries).forEach(c => { merged[c.country] = (merged[c.country]??0)+c.clicks })
+                const sorted = Object.entries(merged).sort(([,a],[,b]) => b-a).slice(0,7)
+                const maxC = sorted[0]?.[1]??1
+                return sorted.map(([country,clicks],i) => (
+                  <div key={country} style={{ marginBottom: 14 }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12, marginBottom: 4 }}>
+                      <span style={{ color: '#111', fontWeight: 500 }}>{country}</span>
+                      <span style={{ color: '#9ca3af' }}>{fmtN(clicks)}</span>
+                    </div>
+                    <div style={{ height: 3, background: 'rgba(0,0,0,0.06)', borderRadius: 2 }}>
+                      <div style={{ height: 3, width: `${Math.round((clicks/maxC)*100)}%`, background: PALETTE[i%PALETTE.length], borderRadius: 2 }} />
+                    </div>
+                  </div>
                 ))
               })()}
-            </tbody>
-          </table>
+            </div>
+          </div>
         </div>
       )}
 
       {/* PAGES */}
       {view === 'pages' && (
-        <div style={st.card}>
-          <div style={st.cardTitle}>Top pages{activeTag && ` · ${tags.find(t=>t.id===activeTag)?.name}`}</div>
-          <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
-            <thead><tr style={{ borderBottom: '1px solid rgba(255,255,255,0.07)' }}>
-              {['Page','Site','Clicks','Impr','CTR','Pos','Trend'].map((h, i) => (
-                <th key={h} style={{ textAlign: i < 2 ? 'left' : 'right', padding: '8px 0', fontWeight: 500, color: '#50507a' }}>{h}</th>
+        <div style={s.card}>
+          <div style={s.secLbl}>Top pages — alla sajter</div>
+          <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12 }}>
+            <thead><tr style={{ borderBottom: '0.5px solid rgba(0,0,0,0.08)' }}>
+              {['Page','Site','Clicks','Impr','CTR','Pos','Trend'].map((h,i) => (
+                <th key={h} style={{ textAlign: i<2?'left':'right', padding: '6px 0', fontWeight: 500, color: '#9ca3af', fontSize: 11 }}>{h}</th>
               ))}
             </tr></thead>
             <tbody>
-              {sites.flatMap(site => site.pages.map(p => ({ ...p, siteName: site.displayName ?? site.url, siteColor: site.color })))
-                .sort((a, b) => b.clicks - a.clicks).slice(0, 50)
-                .map((p, i) => (
-                  <tr key={i} style={{ borderBottom: '1px solid rgba(255,255,255,0.05)' }}>
-                    <td style={{ padding: '9px 0', color: '#c8c8e0', fontFamily: 'var(--font-mono)', fontSize: 12 }}>
-                      {p.pageUrl.length > 55 ? p.pageUrl.slice(0, 55) + '…' : p.pageUrl}
+              {sites.flatMap(site => site.pages.map(p => ({ ...p, siteName: site.displayName??site.url, siteColor: site.color })))
+                .sort((a,b) => b.clicks-a.clicks).slice(0,50)
+                .map((p,i) => (
+                  <tr key={i} style={{ borderBottom: '0.5px solid rgba(0,0,0,0.05)' }}>
+                    <td style={{ padding: '8px 0', color: '#374151', fontFamily: 'var(--font-mono)', fontSize: 11 }}>
+                      {p.pageUrl.length>55 ? p.pageUrl.slice(0,55)+'…' : p.pageUrl}
                     </td>
-                    <td style={{ padding: '9px 12px 9px 0' }}>
-                      <span style={{ fontSize: 11, padding: '2px 7px', borderRadius: 5, background: p.siteColor + '20', color: p.siteColor }}>{p.siteName}</span>
+                    <td style={{ padding: '8px 10px 8px 0' }}>
+                      <span style={{ fontSize: 10, padding: '2px 6px', borderRadius: 4, background: p.siteColor+'15', color: p.siteColor }}>{p.siteName}</span>
                     </td>
-                    <td style={{ textAlign: 'right', padding: '9px 0', fontWeight: 500, color: '#e8e8f4' }}>{fmtN(p.clicks)}</td>
-                    <td style={{ textAlign: 'right', padding: '9px 0', color: '#7070a0' }}>{fmtN(p.impressions)}</td>
-                    <td style={{ textAlign: 'right', padding: '9px 0', color: '#7070a0' }}>{p.ctr}%</td>
-                    <td style={{ textAlign: 'right', padding: '9px 0', color: '#7070a0' }}>{p.position}</td>
-                    <td style={{ textAlign: 'right', padding: '9px 0', fontWeight: 500, color: p.trendPct > 0 ? '#34d399' : p.trendPct < 0 ? '#f87171' : '#50507a' }}>
-                      {p.trendPct > 0 ? '+' : ''}{p.trendPct}%
+                    <td style={{ textAlign:'right', padding:'8px 0', fontWeight:500, color:'#111' }}>{fmtN(p.clicks)}</td>
+                    <td style={{ textAlign:'right', padding:'8px 0', color:'#6b7280' }}>{fmtN(p.impressions)}</td>
+                    <td style={{ textAlign:'right', padding:'8px 0', color:'#6b7280' }}>{p.ctr}%</td>
+                    <td style={{ textAlign:'right', padding:'8px 0', color:'#6b7280' }}>{p.position}</td>
+                    <td style={{ textAlign:'right', padding:'8px 0', fontWeight:500, color: p.trendPct>0?'#059669':p.trendPct<0?'#dc2626':'#9ca3af' }}>
+                      {p.trendPct>0?'+':''}{p.trendPct}%
                     </td>
                   </tr>
                 ))}
@@ -347,14 +340,10 @@ export default function Dashboard() {
       )}
 
       {/* ACCOUNTS */}
-      {view === 'accounts' && (
-        <AccountsView accounts={accounts} onRefresh={loadData} connectUrl={connectUrl} />
-      )}
+      {view === 'accounts' && <AccountsView accounts={accounts} onRefresh={loadData} connectUrl={connectUrl} />}
 
       {/* TAGS */}
-      {view === 'tags' && (
-        <TagsView tags={tags} sites={allSites} onRefresh={loadData} />
-      )}
+      {view === 'tags' && <TagsView tags={tags} sites={allSites} onRefresh={loadData} />}
     </div>
   )
 }
