@@ -11,7 +11,7 @@ function fmtN(n: number) {
 }
 
 function posStyle(pos: number): React.CSSProperties {
-  if (pos <= 3) return { background: 'rgba(52,211,153,0.12)', color: '#34d399' }
+  if (pos <= 3)  return { background: 'rgba(52,211,153,0.12)',  color: '#34d399' }
   if (pos <= 10) return { background: 'rgba(129,140,248,0.12)', color: '#818cf8' }
   return { background: 'rgba(255,255,255,0.06)', color: '#50507a' }
 }
@@ -29,46 +29,27 @@ export default function SiteCard({ site, onSync, onDelete, syncing }: Props) {
   const trendUp = totals.trend >= 0
   const maxPageClicks = site.pages[0]?.clicks ?? 1
 
+  const trendingPages = site.pages
+    .filter(p => p.trendPct > 10)
+    .sort((a, b) => b.trendPct - a.trendPct)
+    .slice(0, 5)
+
   return (
     <div
-      style={{
-        background: '#131318',
-        border: '1px solid rgba(255,255,255,0.07)',
-        borderRadius: 12,
-        padding: '1.1rem 1.2rem',
-        display: 'flex',
-        flexDirection: 'column',
-        position: 'relative',
-        overflow: 'hidden',
-        transition: 'border-color 0.15s',
-      }}
-      onMouseEnter={(e) => ((e.currentTarget as HTMLDivElement).style.borderColor = 'rgba(255,255,255,0.14)')}
-      onMouseLeave={(e) => ((e.currentTarget as HTMLDivElement).style.borderColor = 'rgba(255,255,255,0.07)')}
+      style={{ background: '#131318', border: '1px solid rgba(255,255,255,0.07)', borderRadius: 12, padding: '1.1rem 1.2rem', display: 'flex', flexDirection: 'column', position: 'relative', overflow: 'hidden', transition: 'border-color 0.15s' }}
+      onMouseEnter={e => ((e.currentTarget as HTMLDivElement).style.borderColor = 'rgba(255,255,255,0.14)')}
+      onMouseLeave={e => ((e.currentTarget as HTMLDivElement).style.borderColor = 'rgba(255,255,255,0.07)')}
     >
-      <div
-        style={{
-          position: 'absolute',
-          top: 0,
-          left: 0,
-          right: 0,
-          height: 2,
-          background: site.color,
-          borderRadius: '12px 12px 0 0',
-          opacity: 0.7,
-        }}
-      />
+      <div style={{ position: 'absolute', top: 0, left: 0, right: 0, height: 2, background: site.color, borderRadius: '12px 12px 0 0', opacity: 0.7 }} />
 
+      {/* Header */}
       <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 12 }}>
         <div>
-          <div style={{ fontSize: 13, fontWeight: 500, color: '#e8e8f4' }}>
-            {site.displayName ?? site.url}
-          </div>
+          <div style={{ fontSize: 13, fontWeight: 500, color: '#e8e8f4' }}>{site.displayName ?? site.url}</div>
           <div style={{ display: 'flex', alignItems: 'center', gap: 5, marginTop: 4 }}>
             <span style={{ width: 6, height: 6, borderRadius: '50%', background: site.lastSynced ? '#34d399' : '#50507a', display: 'inline-block' }} />
             <span style={{ fontSize: 11, color: '#50507a' }}>
-              {site.lastSynced
-                ? `Synced ${new Date(site.lastSynced).toLocaleDateString('sv-SE')}`
-                : 'Not synced'}
+              {site.lastSynced ? `Synced ${new Date(site.lastSynced).toLocaleDateString('sv-SE')}` : 'Not synced'}
             </span>
           </div>
         </div>
@@ -79,27 +60,20 @@ export default function SiteCard({ site, onSync, onDelete, syncing }: Props) {
           <button
             onClick={() => onSync(site.id)}
             disabled={syncing}
-            style={{
-              padding: '3px 8px',
-              fontSize: 11,
-              borderRadius: 6,
-              border: '1px solid rgba(255,255,255,0.1)',
-              background: 'transparent',
-              color: syncing ? '#50507a' : '#7070a0',
-              cursor: syncing ? 'not-allowed' : 'pointer',
-            }}
+            style={{ padding: '3px 8px', fontSize: 11, borderRadius: 6, border: '1px solid rgba(255,255,255,0.1)', background: 'transparent', color: syncing ? '#50507a' : '#7070a0', cursor: syncing ? 'not-allowed' : 'pointer' }}
           >
             {syncing ? '…' : 'Sync'}
           </button>
         </div>
       </div>
 
+      {/* Stats */}
       <div style={{ display: 'flex', gap: 6, marginBottom: 12 }}>
         {[
           { label: 'Clicks', value: fmtN(totals.clicks) },
-          { label: 'Impr', value: fmtN(totals.impressions) },
-          { label: 'CTR', value: `${totals.ctr}%` },
-          { label: 'Pos', value: String(totals.position) },
+          { label: 'Impr',   value: fmtN(totals.impressions) },
+          { label: 'CTR',    value: `${totals.ctr}%` },
+          { label: 'Pos',    value: String(totals.position) },
         ].map(({ label, value }) => (
           <div key={label} style={{ background: '#1a1a22', borderRadius: 8, padding: '7px 10px', flex: 1 }}>
             <div style={{ fontSize: 10, color: '#50507a', marginBottom: 3 }}>{label}</div>
@@ -108,34 +82,16 @@ export default function SiteCard({ site, onSync, onDelete, syncing }: Props) {
         ))}
       </div>
 
-      {site.metrics.length > 0 ? (
-        <div style={{ margin: '0 -4px' }}>
-          <SparkLine data={site.metrics} color={site.color} height={80} />
-        </div>
-      ) : (
-        <div style={{ height: 80, display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#50507a', fontSize: 12 }}>
-          No data — sync to load
-        </div>
-      )}
+      {/* Sparkline */}
+      {site.metrics.length > 0
+        ? <div style={{ margin: '0 -4px' }}><SparkLine data={site.metrics} color={site.color} height={80} /></div>
+        : <div style={{ height: 80, display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#50507a', fontSize: 12 }}>Sync för att ladda data</div>
+      }
 
+      {/* More data toggle */}
       <button
         onClick={() => setExpanded(!expanded)}
-        style={{
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          gap: 6,
-          width: '100%',
-          padding: '7px',
-          border: '1px solid rgba(255,255,255,0.08)',
-          borderRadius: 8,
-          background: 'transparent',
-          cursor: 'pointer',
-          fontSize: 12,
-          color: '#7070a0',
-          marginTop: 12,
-          transition: 'all 0.15s',
-        }}
+        style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6, width: '100%', padding: '7px', border: '1px solid rgba(255,255,255,0.08)', borderRadius: 8, background: 'transparent', cursor: 'pointer', fontSize: 12, color: '#7070a0', marginTop: 12, transition: 'all 0.15s' }}
       >
         <svg width="12" height="12" viewBox="0 0 12 12" fill="none" style={{ transform: expanded ? 'rotate(180deg)' : undefined, transition: 'transform 0.2s' }}>
           <path d="M2 4l4 4 4-4" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" strokeLinejoin="round" />
@@ -143,12 +99,13 @@ export default function SiteCard({ site, onSync, onDelete, syncing }: Props) {
         {expanded ? 'Less' : 'More data'}
       </button>
 
+      {/* Expanded section */}
       {expanded && (
         <div style={{ marginTop: 12, paddingTop: 12, borderTop: '1px solid rgba(255,255,255,0.07)' }}>
-          <div style={{ fontSize: 10, letterSpacing: '0.08em', textTransform: 'uppercase', color: '#50507a', fontWeight: 500, marginBottom: 8 }}>
-            Top pages
-          </div>
-          {site.pages.slice(0, 5).map((p) => {
+
+          {/* Top pages */}
+          <div style={{ fontSize: 10, letterSpacing: '0.08em', textTransform: 'uppercase', color: '#50507a', fontWeight: 500, marginBottom: 8 }}>Top pages</div>
+          {site.pages.slice(0, 5).map(p => {
             const pct = Math.round((p.clicks / maxPageClicks) * 100)
             const short = p.pageUrl.length > 38 ? p.pageUrl.slice(0, 38) + '…' : p.pageUrl
             return (
@@ -164,17 +121,31 @@ export default function SiteCard({ site, onSync, onDelete, syncing }: Props) {
             )
           })}
 
-          <div style={{ fontSize: 10, letterSpacing: '0.08em', textTransform: 'uppercase', color: '#50507a', fontWeight: 500, marginBottom: 8, marginTop: 14 }}>
-            Keywords
-          </div>
-          {site.keywords.slice(0, 7).map((k) => (
+          {/* Trending pages */}
+          {trendingPages.length > 0 && (
+            <>
+              <div style={{ fontSize: 10, letterSpacing: '0.08em', textTransform: 'uppercase', color: '#50507a', fontWeight: 500, marginBottom: 8, marginTop: 14 }}>Trending pages</div>
+              {trendingPages.map(p => {
+                const short = p.pageUrl.length > 32 ? p.pageUrl.slice(0, 32) + '…' : p.pageUrl
+                return (
+                  <div key={p.pageUrl} style={{ display: 'flex', alignItems: 'center', gap: 7, padding: '5px 0', borderBottom: '1px solid rgba(255,255,255,0.05)' }}>
+                    <span style={{ fontSize: 11, fontWeight: 600, color: '#34d399', minWidth: 40 }}>+{Math.round(p.trendPct)}%</span>
+                    <span style={{ flex: 1, fontSize: 11, color: '#c8c8e0', fontFamily: 'var(--font-mono)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{short}</span>
+                    <span style={{ fontSize: 11, color: '#50507a' }}>{fmtN(p.clicks)}</span>
+                  </div>
+                )
+              })}
+            </>
+          )}
+
+          {/* Keywords */}
+          <div style={{ fontSize: 10, letterSpacing: '0.08em', textTransform: 'uppercase', color: '#50507a', fontWeight: 500, marginBottom: 8, marginTop: 14 }}>Keywords</div>
+          {site.keywords.slice(0, 7).map(k => (
             <div key={k.keyword} style={{ display: 'flex', alignItems: 'center', gap: 7, padding: '5px 0', borderBottom: '1px solid rgba(255,255,255,0.05)' }}>
               <span style={{ display: 'inline-block', minWidth: 28, textAlign: 'center', padding: '2px 5px', borderRadius: 5, fontSize: 10, fontWeight: 600, ...posStyle(k.position) }}>
                 #{Math.round(k.position)}
               </span>
-              <span style={{ flex: 1, fontSize: 12, color: '#c8c8e0', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                {k.keyword}
-              </span>
+              <span style={{ flex: 1, fontSize: 12, color: '#c8c8e0', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{k.keyword}</span>
               <span style={{ fontSize: 11, color: '#50507a' }}>{fmtN(k.clicks)}</span>
             </div>
           ))}

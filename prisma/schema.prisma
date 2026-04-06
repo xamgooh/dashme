@@ -12,6 +12,8 @@ model Site {
   url          String    @unique
   propertyUrl  String
   displayName  String?
+  accountEmail String?
+  active       Boolean   @default(true)
   accessToken  String
   refreshToken String
   tokenExpiry  DateTime
@@ -45,6 +47,7 @@ model SitePage {
   impressions Int
   ctr         Float
   position    Float
+  trendPct    Float    @default(0)
   syncedAt    DateTime @default(now())
   site        Site     @relation(fields: [siteId], references: [id], onDelete: Cascade)
   @@index([siteId, clicks])

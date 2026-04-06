@@ -27,6 +27,18 @@ export async function exchangeCode(code: string) {
   return tokens
 }
 
+export async function getAccountEmail(accessToken: string): Promise<string> {
+  try {
+    const c = client()
+    c.setCredentials({ access_token: accessToken })
+    const oauth2 = google.oauth2({ version: 'v2', auth: c })
+    const { data } = await oauth2.userinfo.get()
+    return data.email ?? 'unknown'
+  } catch {
+    return 'unknown'
+  }
+}
+
 export async function listProperties(accessToken: string, refreshToken: string) {
   const c = client()
   c.setCredentials({ access_token: accessToken, refresh_token: refreshToken })
@@ -51,24 +63,37 @@ export async function syncSite(siteId: string) {
   })
 
   const sc = google.searchconsole({ version: 'v1', auth: c })
-  const end = new Date().toISOString().split('T')[0]
-  const start = new Date(Date.now() - 28 * 86400000).toISOString().split('T')[0]
-  const base = { siteUrl: site.propertyUrl, requestBody: { startDate: start, endDate: end, rowLimit: 100 } }
+  const now = new Date()
+  const end   = now.toISOString().split('T')[0]
+  const mid   = new Date(now.getTime() - 14 * 86400000).toISOString().split('T')[0]
+  const start = new Date(now.getTime() - 28 * 86400000).toISOString().split('T')[0]
 
-  type Row = {
-    keys?: string[] | null
-    clicks?: number | null
-    impressions?: number | null
-    ctr?: number | null
-    position?: number | null
+  type Row = { keys?: string[] | null; clicks?: number | null; impressions?: number | null; ctr?: number | null; position?: number | null }
+
+  const base = { siteUrl: site.propertyUrl }
+
+  const [daily, pagesRecent, pagesPrev, kws, countries] = await Promise.all([
+    sc.searchanalytics.query({ ...base, requestBody: { startDate: start, endDate: end, dimensions: ['date'], rowLimit: 28 } }),
+    sc.searchanalytics.query({ ...base, requestBody: { startDate: mid,   endDate: end,   dimensions: ['page'], rowLimit: 100 } }),
+    sc.searchanalytics.query({ ...base, requestBody: { startDate: start, endDate: mid,   dimensions: ['page'], rowLimit: 100 } }),
+    sc.searchanalytics.query({ ...base, requestBody: { startDate: start, endDate: end,   dimensions: ['query'],   rowLimit: 100 } }),
+    sc.searchanalytics.query({ ...base, requestBody: { startDate: start, endDate: end,   dimensions: ['country'], rowLimit: 100 } }),
+  ])
+
+  // Build prev-period lookup for trend calculation
+  const prevMap: Record<string, number> = {}
+  for (const r of (pagesPrev.data.rows ?? []) as Row[]) {
+    if (r.keys?.[0]) prevMap[r.keys[0]] = r.clicks ?? 0
   }
 
-  const [daily, pages, kws, countries] = await Promise.all([
-    sc.searchanalytics.query({ ...base, requestBody: { ...base.requestBody, dimensions: ['date'], rowLimit: 28 } }),
-    sc.searchanalytics.query({ ...base, requestBody: { ...base.requestBody, dimensions: ['page'] } }),
-    sc.searchanalytics.query({ ...base, requestBody: { ...base.requestBody, dimensions: ['query'] } }),
-    sc.searchanalytics.query({ ...base, requestBody: { ...base.requestBody, dimensions: ['country'] } }),
-  ])
+  const pageRows = (pagesRecent.data.rows ?? []) as Row[]
+  const pageData = pageRows.map((r: Row) => {
+    const url = r.keys![0]
+    const curr = r.clicks ?? 0
+    const prev = prevMap[url] ?? 0
+    const trend = prev > 0 ? ((curr - prev) / prev) * 100 : curr > 0 ? 100 : 0
+    return { url, clicks: curr, impressions: r.impressions ?? 0, ctr: (r.ctr ?? 0) * 100, position: r.position ?? 0, trend }
+  })
 
   await db.$transaction([
     db.siteMetric.deleteMany({ where: { siteId } }),
@@ -79,9 +104,9 @@ export async function syncSite(siteId: string) {
       siteId, date: new Date(r.keys![0]), clicks: r.clicks ?? 0,
       impressions: r.impressions ?? 0, ctr: (r.ctr ?? 0) * 100, position: r.position ?? 0,
     }})),
-    ...(pages.data.rows ?? []).map((r: Row) => db.sitePage.create({ data: {
-      siteId, pageUrl: r.keys![0], clicks: r.clicks ?? 0,
-      impressions: r.impressions ?? 0, ctr: (r.ctr ?? 0) * 100, position: r.position ?? 0,
+    ...pageData.map((p) => db.sitePage.create({ data: {
+      siteId, pageUrl: p.url, clicks: p.clicks,
+      impressions: p.impressions, ctr: p.ctr, position: p.position, trendPct: p.trend,
     }})),
     ...(kws.data.rows ?? []).map((r: Row) => db.siteKeyword.create({ data: {
       siteId, keyword: r.keys![0], clicks: r.clicks ?? 0,
